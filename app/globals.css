@@ -64,3 +64,46 @@ button:disabled { opacity: .65; cursor: wait; }
   .availability, .actions, .audit { grid-column: span 12; }
   .audit-event { grid-template-columns: 1fr; }
 }
+
+.setup-page,
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.setup-panel {
+  width: min(720px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.setup-panel .brand {
+  color: var(--pine);
+}
+
+.setup-panel h1,
+.setup-panel p {
+  margin: 0;
+}
+
+.setup-panel p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+code {
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: .95em;
+}

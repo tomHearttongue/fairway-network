@@ -1,18 +1,22 @@
 create extension if not exists pgcrypto;
 
 alter table reservations add column if not exists idempotency_key text;
-create unique index if not exists reservations_idempotency_key_idx on reservations(idempotency_key) where idempotency_key is not null;
+drop index if exists reservations_idempotency_key_idx;
+create unique index if not exists reservations_idempotency_key_idx on reservations(idempotency_key);
 
 alter table access_grants add column if not exists idempotency_key text;
 create unique index if not exists access_grants_reservation_id_idx on access_grants(reservation_id);
-create unique index if not exists access_grants_idempotency_key_idx on access_grants(idempotency_key) where idempotency_key is not null;
+drop index if exists access_grants_idempotency_key_idx;
+create unique index if not exists access_grants_idempotency_key_idx on access_grants(idempotency_key);
 
 alter table sessions add column if not exists idempotency_key text;
 create unique index if not exists sessions_reservation_id_idx on sessions(reservation_id);
-create unique index if not exists sessions_idempotency_key_idx on sessions(idempotency_key) where idempotency_key is not null;
+drop index if exists sessions_idempotency_key_idx;
+create unique index if not exists sessions_idempotency_key_idx on sessions(idempotency_key);
 
 alter table audit_events add column if not exists idempotency_key text;
-create unique index if not exists audit_events_idempotency_key_idx on audit_events(idempotency_key) where idempotency_key is not null;
+drop index if exists audit_events_idempotency_key_idx;
+create unique index if not exists audit_events_idempotency_key_idx on audit_events(idempotency_key);
 
 create unique index if not exists member_profiles_person_home_location_idx on member_profiles(person_id, home_location_id);
 create unique index if not exists active_memberships_member_profile_idx on memberships(member_profile_id) where ended_at is null and status = 'active';

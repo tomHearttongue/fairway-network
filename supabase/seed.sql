@@ -1,1 +1,1 @@
-﻿select fairway_seed_location_one();
+select fairway_seed_location_one();

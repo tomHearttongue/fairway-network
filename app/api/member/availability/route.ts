@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAuthenticatedMemberContext, requiredEnvironmentVariables } from "@/application/member-flow/authenticated-context";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,18 @@ export async function GET() {
     }
 
     const state = await context.store.getMemberState(context.memberProfileId);
-    return NextResponse.json({ environment: { clerkConfigured: true, supabaseConfigured: true }, ...state });
+    return NextResponse.json({
+      environment: { clerkConfigured: true, supabaseConfigured: true },
+      location: state.location,
+      member: {
+        person: state.person,
+        profile: state.profile,
+        membershipPlan: state.membershipPlan,
+        availableCredits: state.availableCredits,
+      },
+      availability: state.availability,
+      auditEvents: state.auditEvents,
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "UNKNOWN_ERROR" }, { status: 500 });
   }

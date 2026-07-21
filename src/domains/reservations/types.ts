@@ -1,4 +1,4 @@
-export type BookingMode = "ADVANCE" | "PLAY_NOW" | "OPERATOR" | "INSTRUCTOR";
+﻿export type BookingMode = "ADVANCE" | "PLAY_NOW" | "OPERATOR" | "INSTRUCTOR";
 export type ReservationStatus = "held" | "confirmed" | "checked_in" | "cancelled" | "completed";
 
 export interface Reservation {
@@ -11,6 +11,7 @@ export interface Reservation {
   startAt: Date;
   endAt: Date;
   creditHoldEntryId: string;
+  idempotencyKey: string;
   createdAt: Date;
 }
 
@@ -36,5 +37,6 @@ export interface CreateReservationRecord {
   startAt: Date;
   endAt: Date;
   creditHoldEntryId: string;
+  idempotencyKey: string;
   createdAt: Date;
 }

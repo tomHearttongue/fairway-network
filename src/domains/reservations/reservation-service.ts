@@ -31,7 +31,11 @@ export class ReservationService {
 
   private async createReservation(input: CreateReservationInput & { bookingMode: BookingMode }): Promise<Reservation> {
     const now = this.dependencies.clock.now();
-    const activeFutureCount = (await this.dependencies.repository.listReservations(this.dependencies.location.id)).filter(
+    const existingReservations = await this.dependencies.repository.listReservations(this.dependencies.location.id);
+    const idempotentReservation = existingReservations.find((reservation) => reservation.idempotencyKey === input.idempotencyKey);
+    if (idempotentReservation) return idempotentReservation;
+
+    const activeFutureCount = existingReservations.filter(
       (reservation) => reservation.memberProfileId === input.memberProfileId && reservation.startAt > now && reservation.status === "confirmed",
     ).length;
 
@@ -41,13 +45,12 @@ export class ReservationService {
     const suite = this.dependencies.suites.find((item) => item.id === input.suiteId);
     if (!suite || suite.status !== "available") throw new Error("SUITE_NOT_AVAILABLE");
 
-    const existingReservations = await this.dependencies.repository.listReservations(this.dependencies.location.id);
     if (existingReservations.some((reservation) => reservation.suiteId === input.suiteId && reservation.status === "confirmed" && overlaps(input.startAt, input.endAt, reservation.startAt, reservation.endAt))) throw new Error("RESERVATION_CONFLICT");
 
     const hold = this.dependencies.ledger.hold({ memberProfileId: input.memberProfileId, amount: input.creditCost, idempotencyKey: `${input.idempotencyKey}:credit-hold`, reason: `${input.bookingMode} reservation credit hold`, createdAt: now });
 
     try {
-      const reservation = await this.dependencies.repository.createReservationAtomically({ locationId: this.dependencies.location.id, suiteId: input.suiteId, memberProfileId: input.memberProfileId, bookingMode: input.bookingMode, startAt: input.startAt, endAt: input.endAt, creditHoldEntryId: hold.id, createdAt: now });
+      const reservation = await this.dependencies.repository.createReservationAtomically({ locationId: this.dependencies.location.id, suiteId: input.suiteId, memberProfileId: input.memberProfileId, bookingMode: input.bookingMode, startAt: input.startAt, endAt: input.endAt, creditHoldEntryId: hold.id, createdAt: now, idempotencyKey: input.idempotencyKey });
       this.dependencies.ledger.commit({ memberProfileId: input.memberProfileId, amount: input.creditCost, relatedEntryId: hold.id, idempotencyKey: `${input.idempotencyKey}:credit-commit`, reason: `${input.bookingMode} reservation credit commit`, createdAt: now });
       return reservation;
     } catch (error) {

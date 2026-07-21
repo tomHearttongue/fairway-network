@@ -1,4 +1,4 @@
-import { overlaps } from "@/domains/reservations/availability";
+﻿import { overlaps } from "@/domains/reservations/availability";
 import type { CreateReservationRecord, Reservation, ReservationRepository } from "@/domains/reservations/types";
 
 const ACTIVE_STATUSES = new Set(["held", "confirmed", "checked_in"]);
@@ -17,6 +17,9 @@ export class InMemoryReservationRepository implements ReservationRepository {
 
   async createReservationAtomically(input: CreateReservationRecord): Promise<Reservation> {
     const operation = this.transaction.then(() => {
+      const existing = this.reservations.find((reservation) => reservation.idempotencyKey === input.idempotencyKey);
+      if (existing) return cloneReservation(existing);
+
       const conflict = this.reservations.some((reservation) =>
         reservation.locationId === input.locationId &&
         reservation.suiteId === input.suiteId &&
@@ -39,3 +42,4 @@ export class InMemoryReservationRepository implements ReservationRepository {
 function cloneReservation(reservation: Reservation): Reservation {
   return { ...reservation, startAt: new Date(reservation.startAt), endAt: new Date(reservation.endAt), createdAt: new Date(reservation.createdAt) };
 }
+

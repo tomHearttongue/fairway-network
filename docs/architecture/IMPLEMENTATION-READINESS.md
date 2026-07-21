@@ -1,4 +1,4 @@
-﻿# Fairway Network Implementation Readiness
+# Fairway Network Implementation Readiness
 
 **Status:** Architecture and repository readiness assessment  
 **Assessment date:** 2026-07-20  

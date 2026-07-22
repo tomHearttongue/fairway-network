@@ -203,6 +203,9 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-012 | Premium member home answers: can I golf now, what is coming up, what is happening with my golf, and what needs attention. | LOCKED | product type/member | Implemented VS1G. Human product review required. |
 | FR-UX-013 | Play Now/booking UX translates availability, duration, credit impact, suite assignment, success, and failure into golfer-facing language while preserving server-side enforcement. | LOCKED | product type/member | Implemented VS1G. |
 | FR-UX-014 | Session experience presents current suite, timing, access, guest readiness, and completion summary without collapsing reservation/session/access/facility lifecycles. | LOCKED | product type/member | Implemented VS1G. |
+| FR-UX-015 | Fairway Experience QA must provide deterministic Playwright evidence for functional browser coverage, screenshots, accessibility scans, console/network quality, and failure artifacts before subjective Product Acceptance. | LOCKED | product type | Implemented VS1G.1 via `pnpm ux:qa`. |
+| FR-UX-016 | Product review evidence must use coherent Fairway personae rather than generic logged-in users. | LOCKED | product type/member/operator | Implemented VS1G.1 for demo-active-birdie, new-golfer, power-tour-member, guest-host-member, constrained-member, and facilities-user. |
+| FR-UX-017 | UX review bundles must be self-contained, secret-safe, and mark Product Acceptance as `PENDING HUMAN REVIEW` until Tom explicitly accepts the reviewed evidence. | LOCKED | product type/security | Implemented VS1G.1 via `pnpm ux:review:bundle` and product-acceptance docs. |
 
 ## 6. Business Policies And Rules
 
@@ -378,6 +381,7 @@ Open questions / unresolved:
 | VS1E completion, turnover, cleaning, and readiness | FR-MEM-006, FR-FAC-007 through FR-FAC-012, FR-UX-005, BP-010, BP-011 | `pnpm verify:vs1e`, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1D runtime regressions. |
 | VS1F guest & waiver foundation | PP-DATA-001, PP-DATA-002, FR-GST-001 through FR-GST-010, FR-ACC-005, FR-UX-008, NFR-008 through NFR-010, BP-012 through BP-015 | Implemented. Verified by `pnpm verify:vs1f`, `tests/domains/guests.test.ts`, data contract docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1E regression verifiers. |
 | VS1G Fairway experience foundation & Golden Demo | PP-UX-001 through PP-UX-006, PP-DATA-001, FR-UX-009 through FR-UX-014, FR-CMP-010 through FR-CMP-012, NFR-008 through NFR-011 | Implemented. Verified by `pnpm verify:vs1g`, DLS/experience/data docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1F regression verifiers. Subjective product acceptance remains Tom review. |
+| VS1G.1 Experience QA harness & Product Acceptance infrastructure | PP-UX-006, FR-UX-015 through FR-UX-017, NFR-011 | Implemented. Verified by Playwright Experience QA (`pnpm ux:qa`), review bundle generation (`pnpm ux:review:bundle`), existing functional verifiers, and product-acceptance documentation. Subjective Product Acceptance remains pending human review. |
 
 Every future vertical slice must update this traceability table before completion.
 

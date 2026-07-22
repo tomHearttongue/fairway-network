@@ -9,3 +9,7 @@ coverage
 tsconfig.tsbuildinfo
 .next-dev.*.log
 .verification-*.log
+artifacts/playwright/
+artifacts/ux-review/
+!artifacts/ux-review/.gitkeep
+artifacts/verification/

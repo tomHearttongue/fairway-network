@@ -15,7 +15,9 @@
     "verify:vs1d": "node scripts/verify-vertical-slice-1d.mjs",
     "verify:vs1e": "node scripts/verify-vertical-slice-1e.mjs",
     "verify:vs1f": "node scripts/verify-vertical-slice-1f.mjs",
-    "verify:vs1g": "node scripts/verify-vertical-slice-1g.mjs"
+    "verify:vs1g": "node scripts/verify-vertical-slice-1g.mjs",
+    "ux:qa": "node scripts/run-experience-qa.mjs",
+    "ux:review:bundle": "node scripts/ux-review-bundle.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "7.5.20",
@@ -26,7 +28,9 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@clerk/testing": "^2.2.10",
+    "@playwright/test": "^1.61.1",
     "@types/node": "22.20.1",
     "@types/pg": "^8.20.0",
     "@types/react": "19.2.17",

@@ -49,6 +49,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 |---|---|---|
 | Member | Paying or test member with a Fairway MemberProfile, membership entitlement, credits, reservations, sessions, and future Golfer Passport history. | LOCKED |
 | Guest | Session-associated non-member invited by a host member. Requires identity, waiver, allowance/payment, and time-scoped access. | DEFERRED |
+| Facilities / Cleaning | Restricted location-scoped actor focused on suite readiness, turnover, cleaning, inspection flagging, and cleaning-relevant facility context. Distinct from full operator. | LOCKED |
 | Operator / General Manager | Authorized facility operator responsible for suite state, exceptions, member support, and governed overrides. | LOCKED |
 | Instructor | Future provider of instruction and possibly instructor bookings. | DEFERRED |
 | System | Fairway automation that assigns suites, calculates availability, manages credits, creates access grants, and records audit events. | LOCKED |
@@ -66,6 +67,8 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | Location | Configured facility with timezone, suite inventory, access windows, booking policies, and operational settings. | LOCKED |
 | Practice Suite | Private practice inventory unit. Product language should prefer Practice Suite over bay. | LOCKED |
 | Suite Operational State | Facility state of a suite such as available, maintenance, turnover, or administrative hold. Distinct from reservation/session/access state. | LOCKED |
+| Facility Task | Durable suite-level or common-area service task for turnover, cleaning, inspection, or issue review. MVP implements suite-level turnover and inspection tasks first. | LOCKED |
+| Servicing Activity | Temporary claimed/in-progress work on a facility task. Distinct from suite state and reservation state. | LOCKED |
 | Reservation | Canonical Fairway booking record. Play Now is a booking mode, not a separate core model unless later justified. | LOCKED |
 | Session | Actual facility/practice usage associated with a reservation. Distinct from reservation lifecycle. | LOCKED |
 | AccessGrant | Fairway-owned authorization record for time-bound physical access. Access vendor executes; Fairway decides eligibility. | LOCKED |
@@ -83,6 +86,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-MEM-003 | TEST_BIRDIE membership exists for development with 24 monthly credits, 7-day booking window, max 2 active future reservations, Play Now enabled, 1 guest allowance. | PROVISIONAL | membership plan | Development seed only; not final commercial plan. |
 | FR-MEM-004 | Development-only 100-credit grant may be used to exercise flows without production billing. | PROVISIONAL | environment/member | Implemented VS1B. Must not be production billing behavior. |
 | FR-MEM-005 | Operator authorization must be enforced server-side through Fairway role/authorization boundaries. | LOCKED | location | Implemented VS1D. |
+| FR-MEM-006 | Facilities/Cleaning authorization must be a restricted location-scoped role distinct from full operator. | LOCKED | location | Implemented VS1E. |
 
 ### Credits
 
@@ -125,6 +129,12 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-FAC-004 | Suites that are not operationally eligible must be excluded from Advance and Play Now assignment. | LOCKED | suite/location | Implemented and verified by VS1D availability tests and runtime verifier. |
 | FR-FAC-005 | Returning a suite to available makes it eligible again without disrupting protected future reservations. | LOCKED | suite/location | Implemented VS1D. |
 | FR-FAC-006 | Operator suite-state changes require reason, actor, previous state, new state, timestamp, idempotency context, and audit. | LOCKED | suite/location | Implemented VS1D. |
+| FR-FAC-007 | Cleaning should be managed at the suite/task level rather than by unnecessarily closing the entire facility. | LOCKED | suite/location | Implemented VS1E. |
+| FR-FAC-008 | Facilities users receive reservation-aware priorities showing what can be serviced without disrupting golfers. | LOCKED | location/suite | Implemented VS1E; deterministic prioritization. |
+| FR-FAC-009 | Cleaning and turnover workflows must support maximum safe inventory availability. | LOCKED | location/suite | Implemented VS1E. |
+| FR-FAC-010 | Future demand-aware cleaning optimization is deferred; MVP uses deterministic reservation-aware prioritization. | DEFERRED | location | No AI/ML route optimization in MVP. |
+| FR-FAC-011 | Session completion creates at most one required turnover/readiness task and does not duplicate transitions on retry. | LOCKED | session/reservation/suite | Implemented VS1E. |
+| FR-FAC-012 | Facilities users can claim, start, complete, and flag suite-level service work while seeing only privacy-limited operational context. | LOCKED | product type/location | Implemented VS1E. |
 
 ### Instructor Ecosystem
 
@@ -139,6 +149,12 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-CMP-001 | Competition is core product IP and must support multiple paths to success. | LOCKED | network/event | Deferred implementation. |
 | FR-CMP-002 | Play the Tour Stop is a future flagship concept, but course rights, licensing, trademark usage, APIs, and affiliation are unverified. | UNRESOLVED | event/vendor/legal | Do not imply PGA TOUR affiliation. |
 | FR-CMP-003 | Improvement Score is deferred; preserve useful facts without launching a formula prematurely. | DEFERRED | network/member | Source: locked context. |
+| FR-CMP-004 | Who Needs a Fourth supports member-created real-world golf postings seeking 1-3 players, browse/discover, express/withdraw interest, host acceptance, privacy-safe identity, and Arrival Zone eligibility. | LOCKED | network/member | Deferred implementation; not in VS1E. |
+| FR-CMP-005 | Who Needs a Fourth MVP excludes tee-time booking, payments, group chat, course APIs, and complex matchmaking. | LOCKED | network/member | Deferred implementation. |
+| FR-CMP-006 | Golfer Passport supports official-handicap identity; GHIN/WHS is the initial U.S. target, subject to authorized vendor path. | LOCKED | jurisdiction/member/vendor | Real integration deferred. |
+| FR-CMP-007 | Self-reported or manually verified handicap values must retain explicit provenance and verification status. | LOCKED | member | Deferred implementation. |
+| FR-CMP-008 | Fairway first-party performance profile preserves authorized Uneekor-derived shot/session data through a Fairway-owned canonical model. | LOCKED | member/session/vendor | Real ingestion deferred pending API/data-rights validation. |
+| FR-CMP-009 | Performance profile must distinguish raw source data from Fairway-derived metrics and avoid speculative AI coaching or unvalidated Improvement Score. | LOCKED | member/session | Deferred implementation. |
 
 ### UX
 
@@ -148,6 +164,9 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-002 | Operator UI provides rapid situational awareness without becoming a generic admin dashboard. | LOCKED | product type/operator | Implemented VS1D. |
 | FR-UX-003 | Destructive actions require clear context, confirmation, error feedback, and success feedback. | LOCKED | product type | Implemented VS1D. |
 | FR-UX-004 | Loading, empty, error, disabled, accessibility, and responsive behavior are product acceptance concerns. | LOCKED | product type | Applies incrementally. |
+| FR-UX-005 | Cleaning Mode must answer: what should I service now without disrupting golfers? | LOCKED | product type/facilities | Implemented VS1E. |
+| FR-UX-006 | Arrival Zone display is a network-connected Fairway product surface for future community, competition, event, achievement, and operational content. | LOCKED | product type/location | Display app deferred. |
+| FR-UX-007 | Arrival Zone public content must use privacy-safe identities/data and must not become a manually maintained slideshow dependency. | LOCKED | product type/location | Display app deferred. |
 
 ## 6. Business Policies And Rules
 
@@ -162,6 +181,8 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | BP-007 | No-show definition, grace period, credit forfeiture, repeat-offender policy, and automatic enforcement are unresolved. | UNRESOLVED | reservation/member | Not implemented. |
 | BP-008 | Shared static building codes are prohibited. | LOCKED | location/access | Source: locked context. |
 | BP-009 | Operator overrides require actor, reason, timestamp, previous/new state where relevant, and audit. | LOCKED | operator/location | Implemented VS1D. |
+| BP-010 | A cleaning task being due does not always mean the suite must immediately become unavailable for every future booking. | LOCKED | suite/location | Implemented VS1E. |
+| BP-011 | MVP cleaning priority is deterministic and reservation-aware: urgent turnover/inspection before upcoming reservations, shortest safe service window, overdue required work, then long-vacancy lower-priority work. | LOCKED | location/suite | Implemented VS1E. |
 
 ## 7. Configuration And Policy Scope
 
@@ -175,6 +196,8 @@ Location-scoped configuration:
 - Access before/after minutes.
 - Play Now enabled.
 - Suite operational state and facility holds.
+- Facility task priority and due timestamps.
+- Facilities role assignments.
 
 Membership-plan-scoped configuration:
 
@@ -253,7 +276,22 @@ Session states currently implicit:
 
 - No session row: facility usage has not started.
 - Started session row: session has begun.
-- Ended session row: future completion behavior; not yet productized.
+- Ended session row: session has explicitly completed. Implemented by VS1E.
+
+Facility task states:
+
+- `open`: task is available to claim.
+- `claimed`: facilities actor has accepted responsibility.
+- `in_progress`: service work has started.
+- `completed`: work is finished and readiness may be restored if no other blocking suite state exists.
+- `cancelled`: task was voided by an authorized workflow.
+
+MVP task types:
+
+- `turnover`: post-session suite readiness work.
+- `inspection`: issue/damage/readiness review.
+
+Temporary compromise: VS1E stores `turnover` directly on `suites.status` as an operational readiness state and projects `occupied` from active Session/Reservation records, while preserving separate Session, Reservation, AccessGrant, and FacilityTask records. A future readiness projection model may derive more suite states when operational complexity justifies it.
 
 Do not conflate reservation completion, session completion, physical departure, access expiration, suite turnover, or inspection outcome.
 
@@ -263,11 +301,13 @@ Locked decisions:
 
 - Web/PWA first.
 - Clerk and Supabase development projects are approved.
-- Stripe, Kisi, simulator, notifications, waivers remain fake/deferred through VS1D.
+- Stripe, Kisi, simulator, notifications, waivers remain fake/deferred through VS1E.
 - MemberProfile is durable business identity.
 - Credits and reservations are Fairway-owned differentiators.
 - Play Now is core, not an edge case.
 - Operator overrides must be governed and audited.
+- Cleaning Mode MVP is locked as suite/task-level, reservation-aware, restricted Facilities workflow.
+- Who Needs a Fourth, Arrival Zone display, official handicap identity, and first-party performance profile are locked MVP product directions but deferred for implementation beyond VS1E.
 
 Open questions / unresolved:
 
@@ -290,16 +330,21 @@ Open questions / unresolved:
 | VS1B authenticated persistent member flow | FR-MEM-001, FR-MEM-002, FR-MEM-003, FR-MEM-004, FR-CRD-002, FR-RES-002, FR-RES-003, FR-ACC-001, FR-ACC-002, FR-UX-001 | `pnpm verify:vs1b`, `pnpm test`, `pnpm typecheck`, `pnpm build` |
 | VS1C reservation lifecycle | FR-CRD-003, FR-RES-005, FR-RES-006, FR-RES-007, FR-ACC-003, BP-004, BP-006 | `pnpm verify:vs1c`, `tests/domains/reservations.test.ts` |
 | VS1D operator & facility controls | FR-MEM-005, FR-FAC-001 through FR-FAC-006, FR-RES-008, FR-CRD-004, BP-005, BP-009, FR-UX-002, FR-UX-003 | `pnpm verify:vs1d`, `tests/domains/facility.test.ts`, full regression stack. |
+| VS1E completion, turnover, cleaning, and readiness | FR-MEM-006, FR-FAC-007 through FR-FAC-012, FR-UX-005, BP-010, BP-011 | `pnpm verify:vs1e`, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1D runtime regressions. |
 
 Every future vertical slice must update this traceability table before completion.
 
 ## 12. Explicit Deferred / Out-Of-Scope Capabilities
 
-Deferred through VS1D:
+Deferred through VS1E:
 
 - Real Stripe billing, customer portal, payment collection, and webhook entitlement projection.
 - Real Kisi integration, physical unlock, real PIN lifecycle, or access SDK.
 - Real Uneekor/GSPro or simulator data ingestion.
+- Who Needs a Fourth implementation.
+- Arrival Zone display application.
+- GHIN/WHS integration or official handicap vendor integration.
+- Uneekor-derived first-party performance profile implementation.
 - Resend/Twilio production notifications.
 - Waiver execution and guest waiver evidence.
 - Guest access workflows.

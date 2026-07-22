@@ -4,7 +4,7 @@ import { calculateAvailability } from "@/domains/reservations/availability";
 import { FakeSessionProvider } from "@/domains/sessions/fake-session-provider";
 import type { AuthPrincipal } from "@/domains/identity/types";
 import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
-import type { CancellationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationSummary, ReservationResult, StartSessionResult } from "@/application/member-flow/types";
+import type { CancellationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationSummary, ReservationResult, SessionCompletionResult, StartSessionResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
 
@@ -133,6 +133,33 @@ export class SupabaseMemberStore {
     };
   }
 
+
+  async completeSession(input: { memberProfileId: string; reservationId: string; idempotencyKey: string }): Promise<SessionCompletionResult> {
+    const { data, error } = await this.supabase.rpc("fairway_complete_session", {
+      p_member_profile_id: input.memberProfileId,
+      p_reservation_id: input.reservationId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    const payload = data as { session: StoredSession; reservation: StoredReservation; accessGrant?: StoredAccessGrant | null; facilityTask?: StoredFacilityTask | null; idempotent: boolean };
+    return {
+      session: {
+        id: payload.session.id,
+        reservationId: payload.session.reservation_id,
+        memberProfileId: payload.session.member_profile_id,
+        suiteId: payload.session.suite_id,
+        startedAt: new Date(payload.session.started_at),
+        endedAt: new Date(payload.session.ended_at ?? this.clock.now()),
+        provider: "fake",
+      },
+      reservation: mapReservation(payload.reservation),
+      accessGrant: payload.accessGrant ? mapPersistentAccessGrant(payload.accessGrant) : null,
+      facilityTask: payload.facilityTask ? mapFacilityTask(payload.facilityTask) : null,
+      idempotent: payload.idempotent,
+    };
+  }
   private async getStoredMemberState(memberProfileId: string): Promise<StoredMemberState> {
     const { data, error } = await this.supabase.rpc("fairway_member_state", { p_member_profile_id: memberProfileId });
     if (error) throw new Error(error.message);
@@ -178,9 +205,11 @@ function mapReservationSummary(reservation: StoredReservationSummary): Persisten
     suiteName: reservation.suite_name ?? reservation.suiteName,
     creditsCommitted: reservation.credits_committed ?? reservation.creditsCommitted ?? 0,
     canCancel: reservation.can_cancel ?? reservation.canCancel ?? false,
+    canCompleteSession: reservation.can_complete_session ?? reservation.canCompleteSession ?? false,
     accessWindowStatus: reservation.access_window_status ?? reservation.accessWindowStatus ?? "none",
     accessGrant: (reservation.access_grant ?? reservation.accessGrant) ? mapPersistentAccessGrant((reservation.access_grant ?? reservation.accessGrant) as StoredAccessGrant) : null,
     sessionStartedAt: toOptionalDate(reservation.session_started_at ?? reservation.sessionStartedAt),
+    sessionEndedAt: toOptionalDate(reservation.session_ended_at ?? reservation.sessionEndedAt),
   };
 }
 
@@ -208,6 +237,16 @@ function mapPersistentAccessGrant(accessGrant: StoredAccessGrant): PersistentAcc
   };
 }
 
+
+function mapFacilityTask(task: StoredFacilityTask) {
+  return {
+    id: task.id,
+    suiteId: task.suite_id ?? task.suiteId,
+    taskType: task.task_type ?? task.taskType,
+    status: task.status,
+    dueAt: toOptionalDate(task.due_at ?? task.dueAt),
+  };
+}
 function toOptionalDate(value: string | Date | null | undefined): Date | undefined {
   return value ? new Date(value) : undefined;
 }
@@ -266,6 +305,10 @@ interface StoredReservationSummary extends StoredReservation {
   accessGrant?: StoredAccessGrant | null;
   session_started_at?: string | null;
   sessionStartedAt?: string | null;
+  session_ended_at?: string | null;
+  sessionEndedAt?: string | null;
+  can_complete_session?: boolean;
+  canCompleteSession?: boolean;
 }
 
 interface StoredAccessGrant {
@@ -289,4 +332,16 @@ interface StoredSession {
   member_profile_id: string;
   suite_id: string;
   started_at: string;
+  ended_at?: string | null;
+}
+
+interface StoredFacilityTask {
+  id: string;
+  suite_id?: string;
+  suiteId: string;
+  task_type?: "turnover" | "inspection";
+  taskType: "turnover" | "inspection";
+  status: "open" | "claimed" | "in_progress" | "completed" | "cancelled";
+  due_at?: string | null;
+  dueAt?: string | null;
 }

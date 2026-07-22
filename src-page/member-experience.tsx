@@ -1,7 +1,7 @@
 "use client";
 
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
-import { CalendarPlus, DoorOpen, Play, RefreshCcw, XCircle } from "lucide-react";
+import { CalendarPlus, CheckCircle2, DoorOpen, Play, RefreshCcw, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type MemberReservation = {
@@ -18,6 +18,8 @@ type MemberReservation = {
   accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
   accessGrant?: { id: string; status: "active" | "revoked" | "expired"; startsAt: string; expiresAt: string; revokedAt?: string } | null;
   sessionStartedAt?: string;
+  sessionEndedAt?: string;
+  canCompleteSession?: boolean;
   cancelledAt?: string;
 };
 
@@ -157,6 +159,33 @@ function AuthenticatedFlow() {
     setResult({ ok: true, reservationId, message: `Started simulated Practice Suite session ${body.session.id}.` });
   }
 
+
+  async function completeSession() {
+    const reservationId = result?.reservationId ?? selectedReservation?.id;
+    if (!reservationId) {
+      setResult({ ok: false, message: "Start or select an active session before completing." });
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+    const response = await fetch("/api/member/session/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reservationId, idempotencyKey: `complete-${reservationId}` }),
+    });
+    const body = await response.json();
+
+    if (!response.ok) {
+      setLoading(false);
+      setResult({ ok: false, message: body.error ?? "Session completion failed", reservationId });
+      return;
+    }
+
+    await refresh();
+    setLoading(false);
+    setResult({ ok: true, reservationId, message: `Completed session. ${body.facilityTask ? "Turnover task created." : "Readiness already recorded."}` });
+  }
   if (!data) return <main className="main">Loading Fairway Network...</main>;
 
   return (
@@ -170,7 +199,7 @@ function AuthenticatedFlow() {
         <header className="topbar"><div><h1>Practice Suite Availability</h1><p>Authenticated lifecycle slice: persisted reservations, credits, access grants, cancellation, and simulated session start.</p></div><div className="button-row"><button className="secondary" type="button" onClick={refresh}><RefreshCcw size={17} />Refresh</button><UserButton /></div></header>
         <section className="grid">
           <div className="panel availability"><h2>Availability Now</h2><div className="suite-grid">{data.availability.map((slot) => <div className={`suite ${slot.status}`} key={slot.suiteId}><strong>{slot.suiteName}</strong><span>{slot.status}</span><span>Play Now: {slot.maxPlayNowMinutes} min</span>{slot.availableUntil && <span>Available until {formatTime(slot.availableUntil)}</span>}</div>)}</div></div>
-          <div className="panel actions"><h2>Member Actions</h2><div className="form-grid"><label>Selected reservation<input readOnly value={selectedReservation ? `${selectedReservation.bookingMode} ${selectedReservation.suiteName}` : "No reservation selected"} /></label><div className="button-row"><button type="button" disabled={loading} onClick={() => createReservation("PLAY_NOW")}><Play size={17} />Play Now</button><button className="secondary" type="button" disabled={loading} onClick={() => createReservation("ADVANCE")}><CalendarPlus size={17} />Reserve</button><button className="secondary" type="button" disabled={loading} onClick={startSession}><DoorOpen size={17} />Start Session</button></div>{result && <div className={`result ${result.ok ? "success" : "error"}`}>{result.message}</div>}</div></div>
+          <div className="panel actions"><h2>Member Actions</h2><div className="form-grid"><label>Selected reservation<input readOnly value={selectedReservation ? `${selectedReservation.bookingMode} ${selectedReservation.suiteName}` : "No reservation selected"} /></label><div className="button-row"><button type="button" disabled={loading} onClick={() => createReservation("PLAY_NOW")}><Play size={17} />Play Now</button><button className="secondary" type="button" disabled={loading} onClick={() => createReservation("ADVANCE")}><CalendarPlus size={17} />Reserve</button><button className="secondary" type="button" disabled={loading} onClick={startSession}><DoorOpen size={17} />Start Session</button><button className="secondary" type="button" disabled={loading || !selectedReservation?.canCompleteSession} onClick={completeSession}><CheckCircle2 size={17} />Complete</button></div>{result && <div className={`result ${result.ok ? "success" : "error"}`}>{result.message}</div>}</div></div>
           <ReservationPanel title="Upcoming Reservations" reservations={upcomingReservations} loading={loading} selectedReservationId={selectedReservation?.id} onSelect={setSelectedReservationId} onCancel={cancelReservation} />
           <ReservationPanel title="Reservation History" reservations={historicalReservations} loading={loading} selectedReservationId={selectedReservation?.id} onSelect={setSelectedReservationId} onCancel={cancelReservation} />
           <div className="panel audit"><h2>Audit Trail</h2><div className="audit-list">{data.auditEvents.length === 0 ? <p>No audit events yet.</p> : data.auditEvents.map((event) => <div className="audit-event" key={event.id}><time>{formatTime(event.createdAt)}</time><div><strong>{event.type}</strong><br />{event.reason}</div></div>)}</div></div>
@@ -198,7 +227,7 @@ function ReservationPanel({ title, reservations, selectedReservationId, loading,
               <dt>Access</dt><dd>{reservation.accessWindowStatus}</dd>
             </dl>
             {reservation.accessGrant && <p className="muted">Access {reservation.accessGrant.status}: {formatTime(reservation.accessGrant.startsAt)}-{formatTime(reservation.accessGrant.expiresAt)}</p>}
-            {reservation.sessionStartedAt && <p className="muted">Session started {formatTime(reservation.sessionStartedAt)}</p>}
+            {reservation.sessionStartedAt && <p className="muted">Session started {formatTime(reservation.sessionStartedAt)}</p>}\n            {reservation.sessionEndedAt && <p className="muted">Session completed {formatTime(reservation.sessionEndedAt)}</p>}
             {reservation.cancelledAt && <p className="muted">Cancelled {formatDateTime(reservation.cancelledAt)}</p>}
             {reservation.canCancel && <button className="danger" type="button" disabled={loading} onClick={() => onCancel(reservation.id)}><XCircle size={17} />Cancel</button>}
           </article>

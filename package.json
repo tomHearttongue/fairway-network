@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "verify:vs1b": "node scripts/verify-vertical-slice-1b.mjs",
     "verify:vs1c": "node scripts/verify-vertical-slice-1c.mjs",
-    "verify:vs1d": "node scripts/verify-vertical-slice-1d.mjs"
+    "verify:vs1d": "node scripts/verify-vertical-slice-1d.mjs",
+    "verify:vs1e": "node scripts/verify-vertical-slice-1e.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "7.5.20",

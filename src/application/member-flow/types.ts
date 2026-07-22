@@ -54,9 +54,11 @@ export interface PersistentReservationSummary extends PersistentReservation {
   suiteName: string;
   creditsCommitted: number;
   canCancel: boolean;
+  canCompleteSession?: boolean;
   accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
   accessGrant?: PersistentAccessGrant | null;
   sessionStartedAt?: Date;
+  sessionEndedAt?: Date;
 }
 
 export interface PersistentAccessGrant {
@@ -69,4 +71,12 @@ export interface PersistentAccessGrant {
 
 export interface StartSessionResult {
   session: PracticeSession;
+}
+
+export interface SessionCompletionResult {
+  session: PracticeSession & { endedAt: Date };
+  reservation: PersistentReservation;
+  accessGrant?: PersistentAccessGrant | null;
+  facilityTask?: { id: string; suiteId: string; taskType: "turnover" | "inspection"; status: "open" | "claimed" | "in_progress" | "completed" | "cancelled"; dueAt?: Date } | null;
+  idempotent: boolean;
 }

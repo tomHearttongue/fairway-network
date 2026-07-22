@@ -44,6 +44,9 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | PP-UX-003 | Operator UX is intentionally designed for operational clarity, fast situational awareness, safe destructive actions, and minimal navigation friction. | LOCKED | product type | Implemented VS1D. |
 | PP-DATA-001 | Every meaningful vertical slice identifies domain events, behavioral telemetry, success KPIs, guardrails, stable dimensions, diagnosis needs, privacy considerations, and PRD/test traceability. | LOCKED | network | Effective VS1F; see `docs/product/data/DATA-OBSERVABILITY-CONTRACT.md`. |
 | PP-DATA-002 | Transactional/domain truth, product analytics, and technical observability remain distinct; analytics or observability outages must not block core transactions. | LOCKED | network | Effective VS1F. |
+| PP-UX-004 | Golf before administration: member-facing surfaces lead with golfer intent, not account-management or backend domain navigation. | LOCKED | product type/member | Effective VS1G. |
+| PP-UX-005 | Action before navigation: Play Now, Book, active session, and My Golf receive primary hierarchy over settings/admin. | LOCKED | product type/member | Effective VS1G. |
+| PP-UX-006 | Product acceptance is distinct from functional acceptance; automated checks do not replace human visual/product review. | LOCKED | product type | Effective VS1G. |
 
 ## 3. Personas / Actors
 
@@ -178,6 +181,9 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-CMP-007 | Self-reported or manually verified handicap values must retain explicit provenance and verification status. | LOCKED | member | Deferred implementation. |
 | FR-CMP-008 | Fairway first-party performance profile preserves authorized Uneekor-derived shot/session data through a Fairway-owned canonical model. | LOCKED | member/session/vendor | Real ingestion deferred pending API/data-rights validation. |
 | FR-CMP-009 | Performance profile must distinguish raw source data from Fairway-derived metrics and avoid speculative AI coaching or unvalidated Improvement Score. | LOCKED | member/session | Deferred implementation. |
+| FR-CMP-010 | Golfer Passport / My Golf may present a provider-agnostic demo shell with simulated official-golf state and Fairway performance baselines. | LOCKED | member/demo | Implemented VS1G as demo presentation shell only. |
+| FR-CMP-011 | Official-golf demo state must show provenance and must not imply live GHIN/WHS integration or authorization. | LOCKED | member/vendor/demo | Implemented VS1G. Real integration deferred. |
+| FR-CMP-012 | Fairway Performance demo baselines must use canonical fixture data and avoid Improvement Score, AI coaching, and unsupported conclusions. | LOCKED | member/demo | Implemented VS1G. |
 
 ### UX
 
@@ -191,6 +197,12 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-006 | Arrival Zone display is a network-connected Fairway product surface for future community, competition, event, achievement, and operational content. | LOCKED | product type/location | Display app deferred. |
 | FR-UX-007 | Arrival Zone public content must use privacy-safe identities/data and must not become a manually maintained slideshow dependency. | LOCKED | product type/location | Display app deferred. |
 | FR-UX-008 | Guest UX clearly distinguishes guest added, waiver pending, ready, blocked/ineligible, limit reached, loading, error, success, and removal states. | LOCKED | product type/member | Implemented VS1F in mobile-responsive member guest workflow. |
+| FR-UX-009 | Fairway Design Language System v0.1 establishes color, typography, layout, surface, iconography, motion, imagery, accessibility, and responsive principles. | LOCKED | product type | Implemented VS1G in `docs/design/DESIGN-LANGUAGE-SYSTEM.md`. |
+| FR-UX-010 | Fairway Experience Brief defines member IA, Golden Demo journey, home hierarchy, Play/Book expectations, session experience, My Golf shell, guest integration, and UX acceptance standards. | LOCKED | product type/member | Implemented VS1G in `docs/design/FAIRWAY-EXPERIENCE-BRIEF.md`. |
+| FR-UX-011 | Member navigation is organized around Home, Play, and My Golf rather than backend domain names. | LOCKED | product type/member | Implemented VS1G. Community/Compete remains deferred. |
+| FR-UX-012 | Premium member home answers: can I golf now, what is coming up, what is happening with my golf, and what needs attention. | LOCKED | product type/member | Implemented VS1G. Human product review required. |
+| FR-UX-013 | Play Now/booking UX translates availability, duration, credit impact, suite assignment, success, and failure into golfer-facing language while preserving server-side enforcement. | LOCKED | product type/member | Implemented VS1G. |
+| FR-UX-014 | Session experience presents current suite, timing, access, guest readiness, and completion summary without collapsing reservation/session/access/facility lifecycles. | LOCKED | product type/member | Implemented VS1G. |
 
 ## 6. Business Policies And Rules
 
@@ -268,6 +280,7 @@ Unresolved commercial policies must not be implemented as permanent behavior wit
 | NFR-008 | Slice instrumentation must be proportional and must use stable Fairway IDs rather than PII/vendor IDs where possible. | LOCKED | data/privacy | Effective VS1F. |
 | NFR-009 | Domain events are transactional records; product analytics and technical observability may consume them later but must not replace domain truth. | LOCKED | data/architecture | Implemented VS1F through `domain_events`; see data contract docs. |
 | NFR-010 | Analytics/observability outage must not block guest, waiver, reservation, credit, or access transactions. | LOCKED | reliability | Effective VS1F. |
+| NFR-011 | Member-facing UI targets WCAG 2.2 AA principles for contrast, semantic structure, focus, labels, target sizing, and state messaging. | LOCKED | accessibility | Effective VS1G; objective checks in `pnpm verify:vs1g`. |
 
 ## 9. Product State And Lifecycle Definitions
 
@@ -338,7 +351,7 @@ Locked decisions:
 - Play Now is core, not an edge case.
 - Operator overrides must be governed and audited.
 - Cleaning Mode MVP is locked as suite/task-level, reservation-aware, restricted Facilities workflow.
-- Who Needs a Fourth, Arrival Zone display, official handicap identity, and first-party performance profile are locked MVP product directions but deferred for implementation beyond VS1E.
+- Who Needs a Fourth, Arrival Zone display, official handicap identity, and first-party performance profile are locked MVP product directions; 1G implements only a demo My Golf presentation shell, not real integrations.
 
 Open questions / unresolved:
 
@@ -364,6 +377,7 @@ Open questions / unresolved:
 | VS1D operator & facility controls | FR-MEM-005, FR-FAC-001 through FR-FAC-006, FR-RES-008, FR-CRD-004, BP-005, BP-009, FR-UX-002, FR-UX-003 | `pnpm verify:vs1d`, `tests/domains/facility.test.ts`, full regression stack. |
 | VS1E completion, turnover, cleaning, and readiness | FR-MEM-006, FR-FAC-007 through FR-FAC-012, FR-UX-005, BP-010, BP-011 | `pnpm verify:vs1e`, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1D runtime regressions. |
 | VS1F guest & waiver foundation | PP-DATA-001, PP-DATA-002, FR-GST-001 through FR-GST-010, FR-ACC-005, FR-UX-008, NFR-008 through NFR-010, BP-012 through BP-015 | Implemented. Verified by `pnpm verify:vs1f`, `tests/domains/guests.test.ts`, data contract docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1E regression verifiers. |
+| VS1G Fairway experience foundation & Golden Demo | PP-UX-001 through PP-UX-006, PP-DATA-001, FR-UX-009 through FR-UX-014, FR-CMP-010 through FR-CMP-012, NFR-008 through NFR-011 | Implemented. Verified by `pnpm verify:vs1g`, DLS/experience/data docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1F regression verifiers. Subjective product acceptance remains Tom review. |
 
 Every future vertical slice must update this traceability table before completion.
 

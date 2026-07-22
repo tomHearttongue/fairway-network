@@ -1,72 +1,20 @@
 "use client";
 
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
-import { CalendarPlus, CheckCircle2, DoorOpen, FileCheck2, Play, RefreshCcw, ShieldCheck, Trash2, UserPlus, XCircle } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Clock3, DoorOpen, FileCheck2, Flag, Gauge, History, MapPin, Play, RefreshCcw, ShieldCheck, Sparkles, Target, Trash2, Trophy, UserPlus, Users, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-type MemberReservationGuest = {
-  id: string;
-  guestId: string;
-  displayName: string;
-  status: "active" | "removed";
-  waiverStatus: "not_requested" | "requested" | "completed" | "verified" | "revoked";
-  verificationState: "pending" | "verified" | "rejected";
-  agreementVersion?: string;
-  ready: boolean;
-  accessEligible: boolean;
-  createdAt: string;
-  removedAt?: string;
-};
-
-type MemberReservation = {
-  id: string;
-  locationName: string;
-  suiteName: string;
-  suiteId: string;
-  bookingMode: "ADVANCE" | "PLAY_NOW" | "OPERATOR" | "INSTRUCTOR";
-  status: "held" | "confirmed" | "checked_in" | "cancelled" | "completed";
-  startAt: string;
-  endAt: string;
-  creditsCommitted: number;
-  canCancel: boolean;
-  accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
-  accessGrant?: { id: string; status: "active" | "revoked" | "expired"; startsAt: string; expiresAt: string; revokedAt?: string } | null;
-  sessionStartedAt?: string;
-  sessionEndedAt?: string;
-  canCompleteSession?: boolean;
-  cancelledAt?: string;
-  guests: MemberReservationGuest[];
-};
-
-type AvailabilityResponse = {
-  environment: { clerkConfigured: boolean; supabaseConfigured: boolean };
-  location: { id: string; name: string; timezone: string; minimumSessionMinutes: number; bookingIncrementMinutes: number; turnoverBufferMinutes: number; accessBeforeMinutes: number; accessAfterMinutes: number; playNowEnabled: boolean };
-  member: { person: { displayName: string; email: string }; profile: { id: string; memberNumber: string }; membershipPlan: { id?: string; code: string; monthlyCredits: number; bookingWindowDays: number; maxActiveFutureReservations: number; guestAllowance: number }; availableCredits: number };
-  availability: Array<{ suiteId: string; suiteName: string; status: "available" | "reserved" | "unavailable"; maxPlayNowMinutes: number; availableUntil?: string }>;
-  reservations: MemberReservation[];
-  auditEvents: Array<{ id: string; type: string; reason: string; createdAt: string }>;
-};
-
+type MemberReservationGuest = { id: string; guestId: string; displayName: string; status: "active" | "removed"; waiverStatus: "not_requested" | "requested" | "completed" | "verified" | "revoked"; verificationState: "pending" | "verified" | "rejected"; agreementVersion?: string; ready: boolean; accessEligible: boolean; createdAt: string; removedAt?: string };
+type MemberReservation = { id: string; locationName: string; suiteName: string; suiteId: string; bookingMode: "ADVANCE" | "PLAY_NOW" | "OPERATOR" | "INSTRUCTOR"; status: "held" | "confirmed" | "checked_in" | "cancelled" | "completed"; startAt: string; endAt: string; creditsCommitted: number; canCancel: boolean; accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked"; accessGrant?: { id: string; status: "active" | "revoked" | "expired"; startsAt: string; expiresAt: string; revokedAt?: string } | null; sessionStartedAt?: string; sessionEndedAt?: string; canCompleteSession?: boolean; cancelledAt?: string; guests: MemberReservationGuest[] };
+type DemoGolfProfile = { id: string; displayName: string; label: string; officialGolf: { handicapIndex: number; source: string; status: "simulated" | "manual" | "verified"; lastUpdated: string }; performance: Array<{ clubCode: string; clubName: string; typicalCarryYards: number; ballSpeedMph?: number; dispersionYards: number; sampleCount: number; trend: "stable" | "building" | "improving"; provenance: string }>; activity: Array<{ id: string; title: string; detail: string; occurredAt: string }> };
+type AvailabilityResponse = { environment: { clerkConfigured: boolean; supabaseConfigured: boolean }; location: { id: string; name: string; timezone: string; minimumSessionMinutes: number; bookingIncrementMinutes: number; turnoverBufferMinutes: number; accessBeforeMinutes: number; accessAfterMinutes: number; playNowEnabled: boolean }; member: { person: { displayName: string; email: string }; profile: { id: string; memberNumber: string }; membershipPlan: { id?: string; code: string; monthlyCredits: number; bookingWindowDays: number; maxActiveFutureReservations: number; guestAllowance: number }; availableCredits: number }; availability: Array<{ suiteId: string; suiteName: string; status: "available" | "reserved" | "unavailable"; maxPlayNowMinutes: number; availableUntil?: string }>; reservations: MemberReservation[]; auditEvents: Array<{ id: string; type: string; reason: string; createdAt: string }>; demoGolfProfile: DemoGolfProfile };
 type ActionResult = { ok: boolean; message: string; reservationId?: string };
+type MemberView = "home" | "play" | "golf";
 
 export function MemberExperience() {
   const { isLoaded, isSignedIn } = useUser();
-
-  if (!isLoaded) return <main className="main">Loading Fairway Network...</main>;
-
-  if (!isSignedIn) {
-    return (
-      <main className="setup-page">
-        <section className="setup-panel">
-          <div className="brand"><span className="brand-mark">FN</span>Fairway Network</div>
-          <h1>Sign In To Practice</h1>
-          <p>Your Fairway identity is separate from Clerk. Clerk authenticates you; Fairway owns your Member Profile, credits, reservations, access grants, and sessions.</p>
-          <SignInButton mode="modal"><button type="button">Sign In</button></SignInButton>
-        </section>
-      </main>
-    );
-  }
-
+  if (!isLoaded) return <main className="fairway-loading">Opening Fairway...</main>;
+  if (!isSignedIn) return <main className="fairway-signin"><section className="signin-panel" aria-labelledby="signin-title"><div className="brand-lockup"><span className="brand-crest">FN</span><span>Fairway Network</span></div><p className="eyebrow">Practice. Compete. Improve.</p><h1 id="signin-title">Golf when you want to golf.</h1><p>Sign in to see Practice Suite availability, reserve time, and carry your Fairway golf identity across every future location.</p><SignInButton mode="modal"><button className="primary-action" type="button"><Play size={18} />Sign in</button></SignInButton></section></main>;
   return <AuthenticatedFlow />;
 }
 
@@ -74,6 +22,7 @@ function AuthenticatedFlow() {
   const [data, setData] = useState<AvailabilityResponse | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [view, setView] = useState<MemberView>("home");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
@@ -81,299 +30,145 @@ function AuthenticatedFlow() {
   const advanceSuite = useMemo(() => data?.availability.find((slot) => slot.status === "available" && slot.maxPlayNowMinutes >= 90) ?? firstAvailableSuite, [data, firstAvailableSuite]);
   const upcomingReservations = useMemo(() => data?.reservations.filter((reservation) => reservation.status !== "cancelled" && reservation.status !== "completed") ?? [], [data]);
   const historicalReservations = useMemo(() => data?.reservations.filter((reservation) => reservation.status === "cancelled" || reservation.status === "completed") ?? [], [data]);
-  const selectedReservation = useMemo(() => data?.reservations.find((reservation) => reservation.id === selectedReservationId) ?? upcomingReservations[0], [data, selectedReservationId, upcomingReservations]);
+  const activeSession = useMemo(() => upcomingReservations.find((reservation) => reservation.status === "checked_in" && reservation.sessionStartedAt && !reservation.sessionEndedAt), [upcomingReservations]);
+  const selectedReservation = useMemo(() => data?.reservations.find((reservation) => reservation.id === selectedReservationId) ?? activeSession ?? upcomingReservations[0], [activeSession, data, selectedReservationId, upcomingReservations]);
   const activeGuestCount = selectedReservation?.guests.filter((guest) => guest.status === "active").length ?? 0;
-  const guestLimitReached = Boolean(selectedReservation && activeGuestCount >= data!.member.membershipPlan.guestAllowance);
+  const guestLimitReached = Boolean(data && selectedReservation && activeGuestCount >= data.member.membershipPlan.guestAllowance);
+  const canPlayNow = Boolean(data && firstAvailableSuite && firstAvailableSuite.maxPlayNowMinutes >= data.location.minimumSessionMinutes);
 
-  async function refresh() {
-    const response = await fetch("/api/member/availability", { cache: "no-store" });
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.error ?? "Unable to load availability");
-    setData(body);
-  }
-
-  useEffect(() => {
-    refresh().catch((error) => setResult({ ok: false, message: String(error) }));
-  }, []);
+  async function refresh() { const response = await fetch("/api/member/availability", { cache: "no-store" }); const body = await response.json(); if (!response.ok) throw new Error(friendlyError(body.error, "We could not refresh Fairway. Try again in a moment.")); setData(body); }
+  useEffect(() => { refresh().catch((error) => setResult({ ok: false, message: String(error) })); }, []);
 
   async function createReservation(mode: "ADVANCE" | "PLAY_NOW") {
-    setLoading(true);
-    setResult(null);
-    const now = new Date();
-    const startAt = new Date(now.getTime() + 60 * 60_000);
-    const endAt = new Date(startAt.getTime() + 30 * 60_000);
-
-    const response = await fetch("/api/member/reservations", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        mode,
-        suiteId: mode === "ADVANCE" ? advanceSuite?.suiteId : firstAvailableSuite?.suiteId,
-        startAt: startAt.toISOString(),
-        endAt: endAt.toISOString(),
-        requestedMinutes: firstAvailableSuite?.maxPlayNowMinutes ?? 30,
-        creditCost: 1,
-        idempotencyKey: `${mode.toLowerCase()}-${crypto.randomUUID()}`,
-      }),
-    });
+    setLoading(true); setResult(null);
+    const now = new Date(); const startAt = new Date(now.getTime() + 60 * 60_000); const endAt = new Date(startAt.getTime() + 30 * 60_000);
+    const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode, suiteId: mode === "ADVANCE" ? advanceSuite?.suiteId : firstAvailableSuite?.suiteId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), requestedMinutes: firstAvailableSuite?.maxPlayNowMinutes ?? data?.location.minimumSessionMinutes ?? 30, creditCost: 1, idempotencyKey: `${mode.toLowerCase()}-${crypto.randomUUID()}` }) });
     const body = await response.json();
-
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, message: body.error ?? "Reservation failed" });
-      return;
-    }
-
-    setSelectedReservationId(body.reservation.id);
-    await refresh();
-    setLoading(false);
-    setResult({ ok: true, reservationId: body.reservation.id, message: `Created ${body.reservation.bookingMode} reservation in ${body.reservation.suiteId}. Access: ${body.accessGrant.credentialLabel} from ${formatTime(body.accessGrant.startsAt)} to ${formatTime(body.accessGrant.expiresAt)}.` });
+    if (!response.ok) { setLoading(false); setResult({ ok: false, message: friendlyError(body.error, "We could not complete that reservation. Your credits were not charged.") }); return; }
+    setSelectedReservationId(body.reservation.id); setView("play"); await refresh(); setLoading(false); setResult({ ok: true, reservationId: body.reservation.id, message: `${mode === "PLAY_NOW" ? "You're ready to play." : "You're booked."} ${suiteDisplay(body.reservation.suiteId)} is assigned. Access opens ${formatTime(body.accessGrant.startsAt)}.` });
   }
 
   async function cancelReservation(reservationId: string) {
-    setLoading(true);
-    setResult(null);
-    const response = await fetch(`/api/member/reservations/${reservationId}/cancel`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ idempotencyKey: `cancel-${reservationId}` }),
-    });
+    setLoading(true); setResult(null);
+    const response = await fetch(`/api/member/reservations/${reservationId}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotencyKey: `cancel-${reservationId}` }) });
     const body = await response.json();
-
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, message: body.error ?? "Cancellation failed", reservationId });
-      return;
-    }
-
-    setSelectedReservationId(null);
-    await refresh();
-    setLoading(false);
-    setResult({ ok: true, message: `Cancelled reservation. Refunded credits: ${body.refundedCredits}. Available credits: ${body.availableCredits}.` });
+    if (!response.ok) { setLoading(false); setResult({ ok: false, message: friendlyError(body.error, "We could not cancel that reservation. The reservation is still safe."), reservationId }); return; }
+    setSelectedReservationId(null); await refresh(); setLoading(false); setResult({ ok: true, message: `Reservation cancelled. ${body.refundedCredits} credit returned.` });
   }
 
   async function startSession() {
     const reservationId = result?.reservationId ?? selectedReservation?.id;
-    if (!reservationId) {
-      setResult({ ok: false, message: "Create or select a reservation before starting a session." });
-      return;
-    }
-
+    if (!reservationId) { setResult({ ok: false, message: "Choose a reservation before starting a session." }); return; }
     setLoading(true);
-    const response = await fetch("/api/member/session/start", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reservationId, idempotencyKey: `session-${reservationId}` }),
-    });
+    const response = await fetch("/api/member/session/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reservationId, idempotencyKey: `session-${reservationId}` }) });
     const body = await response.json();
-
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, message: body.error ?? "Session start failed", reservationId });
-      return;
-    }
-
-    await refresh();
-    setLoading(false);
-    setResult({ ok: true, reservationId, message: `Started simulated Practice Suite session ${body.session.id}.` });
+    if (!response.ok) { setLoading(false); setResult({ ok: false, message: friendlyError(body.error, "We could not start the session. Your reservation is still safe."), reservationId }); return; }
+    setSelectedReservationId(reservationId); setView("play"); await refresh(); setLoading(false); setResult({ ok: true, reservationId, message: "Session started. Enjoy your Practice Suite." });
   }
 
   async function completeSession() {
     const reservationId = result?.reservationId ?? selectedReservation?.id;
-    if (!reservationId) {
-      setResult({ ok: false, message: "Start or select an active session before completing." });
-      return;
-    }
-
-    setLoading(true);
-    setResult(null);
-    const response = await fetch("/api/member/session/complete", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reservationId, idempotencyKey: `complete-${reservationId}` }),
-    });
+    if (!reservationId) { setResult({ ok: false, message: "Choose an active session before finishing." }); return; }
+    setLoading(true); setResult(null);
+    const response = await fetch("/api/member/session/complete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reservationId, idempotencyKey: `complete-${reservationId}` }) });
     const body = await response.json();
-
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, message: body.error ?? "Session completion failed", reservationId });
-      return;
-    }
-
-    await refresh();
-    setLoading(false);
-    setResult({ ok: true, reservationId, message: `Completed session. ${body.facilityTask ? "Turnover task created." : "Readiness already recorded."}` });
+    if (!response.ok) { setLoading(false); setResult({ ok: false, message: friendlyError(body.error, "We could not finish that session. Try again before leaving."), reservationId }); return; }
+    await refresh(); setLoading(false); setResult({ ok: true, reservationId, message: body.facilityTask ? "Session complete. We queued suite turnover so the room can return to play." : "Session complete. Your activity is saved." });
   }
-
   async function addGuest() {
-    if (!selectedReservation) {
-      setResult({ ok: false, message: "Select a reservation before adding a guest." });
-      return;
-    }
-    if (!guestName.trim()) {
-      setResult({ ok: false, message: "Guest name is required." });
-      return;
-    }
-
-    setLoading(true);
-    setResult(null);
-    const response = await fetch(`/api/member/reservations/${selectedReservation.id}/guests`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ guestName, guestEmail, idempotencyKey: `guest-add-${selectedReservation.id}-${guestEmail || guestName}` }),
-    });
+    if (!selectedReservation) { setResult({ ok: false, message: "Choose a reservation before adding a guest." }); return; }
+    if (!guestName.trim()) { setResult({ ok: false, message: "Guest name is required." }); return; }
+    setLoading(true); setResult(null);
+    const response = await fetch(`/api/member/reservations/${selectedReservation.id}/guests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ guestName, guestEmail, idempotencyKey: `guest-add-${selectedReservation.id}-${guestEmail || guestName}` }) });
     const body = await response.json();
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, reservationId: selectedReservation.id, message: body.error === "GUEST_ALLOWANCE_EXCEEDED" ? "Guest limit reached for this membership plan." : body.error ?? "Guest add failed" });
-      return;
-    }
-
-    setGuestName("");
-    setGuestEmail("");
-    await refresh();
-    setLoading(false);
-    setResult({ ok: true, reservationId: selectedReservation.id, message: `${body.reservationGuest.displayName} added. Waiver is pending before the guest is ready.` });
+    if (!response.ok) { setLoading(false); setResult({ ok: false, reservationId: selectedReservation.id, message: friendlyError(body.error, "We could not add that guest. Try again or remove another guest first.") }); return; }
+    setGuestName(""); setGuestEmail(""); await refresh(); setLoading(false); setResult({ ok: true, reservationId: selectedReservation.id, message: `${body.reservationGuest.displayName} is added. The waiver still needs to be completed before they are ready.` });
   }
 
   async function mutateGuest(reservationGuestId: string, action: "request" | "complete" | "eligibility" | "remove") {
     if (!selectedReservation) return;
-    setLoading(true);
-    setResult(null);
+    setLoading(true); setResult(null);
     const path = `/api/member/reservations/${selectedReservation.id}/guests/${reservationGuestId}`;
     const requestBody = action === "remove" ? { idempotencyKey: `guest-${action}-${reservationGuestId}` } : { action: guestActionName(action), idempotencyKey: `guest-${action}-${reservationGuestId}` };
-    const response = await fetch(path, {
-      method: action === "remove" ? "DELETE" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
+    const response = await fetch(path, { method: action === "remove" ? "DELETE" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(requestBody) });
     const body = await response.json();
-    if (!response.ok) {
-      setLoading(false);
-      setResult({ ok: false, reservationId: selectedReservation.id, message: body.error ?? "Guest action failed" });
-      return;
-    }
-
-    await refresh();
-    setLoading(false);
-    const messages = {
-      request: "Fake waiver request recorded.",
-      complete: body.ready ? "Fake waiver completed. Guest is ready when the access window is active." : "Waiver recorded, but guest is not ready yet.",
-      eligibility: body.accessEligible ? "Guest access prerequisites are satisfied now." : `Guest is blocked: ${body.blockedReason ?? "not eligible"}.`,
-      remove: "Guest removed from this reservation.",
-    };
+    if (!response.ok) { setLoading(false); setResult({ ok: false, reservationId: selectedReservation.id, message: friendlyError(body.error, "Guest readiness could not be updated. The reservation is unchanged.") }); return; }
+    await refresh(); setLoading(false);
+    const messages = { request: "Waiver request recorded for demo.", complete: body.ready ? "Waiver complete. Guest is ready when the access window is active." : "Waiver recorded, but the guest is not ready yet.", eligibility: body.accessEligible ? "Guest is ready for the active access window." : `Guest is not ready yet: ${friendlyGuestBlock(body.blockedReason)}.`, remove: "Guest removed from this reservation." };
     setResult({ ok: true, reservationId: selectedReservation.id, message: messages[action] });
   }
 
-  if (!data) return <main className="main">Loading Fairway Network...</main>;
+  if (!data) return <main className="fairway-loading">Checking Practice Suite availability...</main>;
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">FN</span>Fairway Network</div>
-        <section className="member-panel"><h2>{data.member.person.displayName}</h2><p>{data.member.person.email}</p><dl><dt>Member</dt><dd>{data.member.profile.memberNumber}</dd><dt>Plan</dt><dd>{data.member.membershipPlan.code}</dd><dt>Credits</dt><dd>{data.member.availableCredits}</dd><dt>Guests</dt><dd>{data.member.membershipPlan.guestAllowance}</dd></dl></section>
-        <section className="status-panel"><h2>Location #1</h2><dl><dt>Suites</dt><dd>{data.availability.length}</dd><dt>Timezone</dt><dd>{data.location.timezone}</dd><dt>Minimum</dt><dd>{data.location.minimumSessionMinutes}m</dd><dt>Turnover</dt><dd>{data.location.turnoverBufferMinutes}m</dd></dl></section>
-      </aside>
-      <main className="main">
-        <header className="topbar"><div><h1>Practice Suite Availability</h1><p>Authenticated lifecycle slice: persisted reservations, credits, access grants, cancellation, sessions, turnover, and controlled guests.</p></div><div className="button-row"><button className="secondary" type="button" onClick={refresh}><RefreshCcw size={17} />Refresh</button><UserButton /></div></header>
-        <section className="grid">
-          <div className="panel availability"><h2>Availability Now</h2><div className="suite-grid">{data.availability.map((slot) => <div className={`suite ${slot.status}`} key={slot.suiteId}><strong>{slot.suiteName}</strong><span>{slot.status}</span><span>Play Now: {slot.maxPlayNowMinutes} min</span>{slot.availableUntil && <span>Available until {formatTime(slot.availableUntil)}</span>}</div>)}</div></div>
-          <div className="panel actions"><h2>Member Actions</h2><div className="form-grid"><label>Selected reservation<input readOnly value={selectedReservation ? `${selectedReservation.bookingMode} ${selectedReservation.suiteName}` : "No reservation selected"} /></label><div className="button-row"><button type="button" disabled={loading} onClick={() => createReservation("PLAY_NOW")}><Play size={17} />Play Now</button><button className="secondary" type="button" disabled={loading} onClick={() => createReservation("ADVANCE")}><CalendarPlus size={17} />Reserve</button><button className="secondary" type="button" disabled={loading} onClick={startSession}><DoorOpen size={17} />Start Session</button><button className="secondary" type="button" disabled={loading || !selectedReservation?.canCompleteSession} onClick={completeSession}><CheckCircle2 size={17} />Complete</button></div>{result && <div className={`result ${result.ok ? "success" : "error"}`}>{result.message}</div>}</div></div>
-          <GuestPanel reservation={selectedReservation} allowance={data.member.membershipPlan.guestAllowance} guestName={guestName} guestEmail={guestEmail} loading={loading} limitReached={guestLimitReached} onGuestNameChange={setGuestName} onGuestEmailChange={setGuestEmail} onAddGuest={addGuest} onGuestAction={mutateGuest} />
-          <ReservationPanel title="Upcoming Reservations" reservations={upcomingReservations} loading={loading} selectedReservationId={selectedReservation?.id} onSelect={setSelectedReservationId} onCancel={cancelReservation} />
-          <ReservationPanel title="Reservation History" reservations={historicalReservations} loading={loading} selectedReservationId={selectedReservation?.id} onSelect={setSelectedReservationId} onCancel={cancelReservation} />
-          <div className="panel audit"><h2>Audit Trail</h2><div className="audit-list">{data.auditEvents.length === 0 ? <p>No audit events yet.</p> : data.auditEvents.map((event) => <div className="audit-event" key={event.id}><time>{formatTime(event.createdAt)}</time><div><strong>{event.type}</strong><br />{event.reason}</div></div>)}</div></div>
-        </section>
+    <div className="fairway-member">
+      <header className="member-topbar">
+        <div className="brand-lockup"><span className="brand-crest">FN</span><span>Fairway Network</span></div>
+        <nav className="member-nav" aria-label="Member navigation"><button type="button" aria-current={view === "home" ? "page" : undefined} onClick={() => setView("home")}>Home</button><button type="button" aria-current={view === "play" ? "page" : undefined} onClick={() => setView("play")}>Play</button><button type="button" aria-current={view === "golf" ? "page" : undefined} onClick={() => setView("golf")}>My Golf</button></nav>
+        <div className="topbar-actions"><button className="quiet-button" type="button" onClick={refresh}><RefreshCcw size={16} />Refresh</button><UserButton /></div>
+      </header>
+      <main className="member-main">
+        <h2 className="sr-only">Practice Suite Availability</h2>
+        <section className="member-hero" aria-labelledby="member-home-title"><div><p className="eyebrow">{data.location.name}</p><h1 id="member-home-title">Golf when you want to golf.</h1><p>{memberFirstName(data.member.person.displayName)} can see availability, book, start a session, and carry a Fairway golf identity from one place.</p></div><div className="member-stat-strip" aria-label="Member summary"><span><strong>{data.member.availableCredits}</strong> credits</span><span><strong>{planLabel(data.member.membershipPlan.code)}</strong> membership</span><span><strong>{data.availability.filter((slot) => slot.status === "available").length}</strong> suites ready</span></div></section>
+        {result && <div className={`member-result ${result.ok ? "success" : "error"}`} role="status" aria-live="polite">{result.message}</div>}
+        {view === "home" && <HomeView data={data} canPlayNow={canPlayNow} firstAvailableSuite={firstAvailableSuite} selectedReservation={selectedReservation} activeSession={activeSession} loading={loading} onPlayNow={() => createReservation("PLAY_NOW")} onBook={() => createReservation("ADVANCE")} onStartSession={startSession} onCompleteSession={completeSession} onOpenPlay={() => setView("play")} onOpenGolf={() => setView("golf")} />}
+        {view === "play" && <PlayView data={data} selectedReservation={selectedReservation} upcomingReservations={upcomingReservations} historicalReservations={historicalReservations} firstAvailableSuite={firstAvailableSuite} canPlayNow={canPlayNow} loading={loading} guestName={guestName} guestEmail={guestEmail} guestLimitReached={guestLimitReached} onPlayNow={() => createReservation("PLAY_NOW")} onBook={() => createReservation("ADVANCE")} onStartSession={startSession} onCompleteSession={completeSession} onCancel={cancelReservation} onSelectReservation={setSelectedReservationId} onGuestNameChange={setGuestName} onGuestEmailChange={setGuestEmail} onAddGuest={addGuest} onGuestAction={mutateGuest} />}
+        {view === "golf" && <MyGolfView profile={data.demoGolfProfile} reservations={data.reservations} />}
       </main>
     </div>
   );
+}
+
+function HomeView({ data, canPlayNow, firstAvailableSuite, selectedReservation, activeSession, loading, onPlayNow, onBook, onStartSession, onCompleteSession, onOpenPlay, onOpenGolf }: { data: AvailabilityResponse; canPlayNow: boolean; firstAvailableSuite?: AvailabilityResponse["availability"][number]; selectedReservation?: MemberReservation; activeSession?: MemberReservation; loading: boolean; onPlayNow: () => void; onBook: () => void; onStartSession: () => void; onCompleteSession: () => void; onOpenPlay: () => void; onOpenGolf: () => void }) {
+  const attentionGuest = selectedReservation?.guests.find((guest) => guest.status === "active" && !guest.ready);
+  return <section className="home-layout" aria-label="Fairway home"><article className="play-now-card"><div className="availability-pill"><span className={canPlayNow ? "dot ready" : "dot blocked"} />{canPlayNow ? "Suite ready now" : "No suite ready right now"}</div><h2>{canPlayNow ? "Play Now" : "Book your next session"}</h2><p>{canPlayNow && firstAvailableSuite ? `${firstAvailableSuite.suiteName} can hold up to ${firstAvailableSuite.maxPlayNowMinutes} minutes while preserving turnover.` : "We will keep future reservations protected and show the next safe option."}</p><div className="action-stack"><button className="primary-action large" type="button" disabled={loading || !canPlayNow} onClick={onPlayNow}><Play size={20} />Play Now</button><button className="secondary-action" type="button" disabled={loading} onClick={onBook}><CalendarPlus size={18} />Book for later</button></div></article><article className="session-card"><div className="section-heading"><span><DoorOpen size={18} />Current session</span></div>{activeSession ? <SessionState reservation={activeSession} loading={loading} onStartSession={onStartSession} onCompleteSession={onCompleteSession} /> : <EmptyState title="No active session" body="Start from Play Now or an upcoming reservation when you arrive." action="Open Play" onAction={onOpenPlay} />}</article><article className="insight-card"><div className="section-heading"><span><Target size={18} />My Golf</span><button className="text-button" type="button" onClick={onOpenGolf}>View</button></div><div className="passport-preview"><strong>{data.demoGolfProfile.officialGolf.handicapIndex.toFixed(1)}</strong><span>Handicap Index</span><small>{data.demoGolfProfile.officialGolf.source}</small></div><div className="mini-metrics">{data.demoGolfProfile.performance.slice(0, 2).map((club) => <span key={club.clubCode}><strong>{club.typicalCarryYards} yd</strong>{club.clubName} carry</span>)}</div></article><article className="attention-card"><div className="section-heading"><span><Sparkles size={18} />Needs attention</span></div>{attentionGuest ? <p><strong>{attentionGuest.displayName}</strong> still needs waiver completion before they are ready for this reservation.</p> : <p>Nothing blocking your next Fairway session.</p>}{selectedReservation && <p className="supporting-copy">Next up: {selectedReservation.suiteName}, {formatDateTime(selectedReservation.startAt)}.</p>}</article></section>;
+}
+
+function PlayView({ data, selectedReservation, upcomingReservations, historicalReservations, firstAvailableSuite, canPlayNow, loading, guestName, guestEmail, guestLimitReached, onPlayNow, onBook, onStartSession, onCompleteSession, onCancel, onSelectReservation, onGuestNameChange, onGuestEmailChange, onAddGuest, onGuestAction }: { data: AvailabilityResponse; selectedReservation?: MemberReservation; upcomingReservations: MemberReservation[]; historicalReservations: MemberReservation[]; firstAvailableSuite?: AvailabilityResponse["availability"][number]; canPlayNow: boolean; loading: boolean; guestName: string; guestEmail: string; guestLimitReached: boolean; onPlayNow: () => void; onBook: () => void; onStartSession: () => void; onCompleteSession: () => void; onCancel: (reservationId: string) => void; onSelectReservation: (reservationId: string) => void; onGuestNameChange: (value: string) => void; onGuestEmailChange: (value: string) => void; onAddGuest: () => void; onGuestAction: (reservationGuestId: string, action: "request" | "complete" | "eligibility" | "remove") => void }) {
+  return <section className="play-layout" aria-label="Play and booking"><article className="flow-panel primary-flow"><p className="eyebrow">Play</p><h2>{canPlayNow ? `${firstAvailableSuite?.maxPlayNowMinutes ?? data.location.minimumSessionMinutes} minutes available now` : "Reserve protected time"}</h2><p>{canPlayNow ? "One tap assigns a Practice Suite, commits one demo credit, and creates a simulated access grant." : "Availability changes fast. Book for later or refresh to check current readiness."}</p><dl className="flow-facts"><div><dt>Cost</dt><dd>1 credit</dd></div><div><dt>Minimum</dt><dd>{data.location.minimumSessionMinutes} min</dd></div><div><dt>Turnover</dt><dd>{data.location.turnoverBufferMinutes} min protected</dd></div></dl><div className="action-stack horizontal"><button className="primary-action" type="button" disabled={loading || !canPlayNow} onClick={onPlayNow}><Play size={18} />Play Now</button><button className="secondary-action" type="button" disabled={loading} onClick={onBook}><CalendarPlus size={18} />Book</button></div></article><article className="flow-panel session-flow"><div className="section-heading"><span><Clock3 size={18} />Session state</span></div>{selectedReservation ? <SessionState reservation={selectedReservation} loading={loading} onStartSession={onStartSession} onCompleteSession={onCompleteSession} /> : <EmptyState title="No reservation selected" body="Create or choose a reservation to see suite and access details." />}</article><article className="flow-panel inventory-flow"><div className="section-heading"><span><MapPin size={18} />Practice Suites</span></div><div className="suite-lineup">{data.availability.map((slot) => <div className={`suite-chip ${slot.status}`} key={slot.suiteId}><strong>{slot.suiteName.replace("Practice ", "")}</strong><span>{availabilityLabel(slot)}</span></div>)}</div></article><ReservationList title="Upcoming" reservations={upcomingReservations} selectedReservationId={selectedReservation?.id} loading={loading} onSelect={onSelectReservation} onCancel={onCancel} /><GuestPanel reservation={selectedReservation} allowance={data.member.membershipPlan.guestAllowance} guestName={guestName} guestEmail={guestEmail} loading={loading} limitReached={guestLimitReached} onGuestNameChange={onGuestNameChange} onGuestEmailChange={onGuestEmailChange} onAddGuest={onAddGuest} onGuestAction={onGuestAction} /><ReservationList title="History" reservations={historicalReservations.slice(0, 6)} selectedReservationId={selectedReservation?.id} loading={loading} onSelect={onSelectReservation} onCancel={onCancel} /></section>;
+}
+
+function MyGolfView({ profile, reservations }: { profile: DemoGolfProfile; reservations: MemberReservation[] }) {
+  return <section className="golf-layout" aria-label="My Golf and Golfer Passport"><article className="passport-hero"><p className="eyebrow">Golfer Passport</p><h2>{profile.displayName} <span>{profile.label}</span></h2><p>Provider-agnostic demo profile showing where official golf identity, Fairway performance, and activity will live.</p><div className="official-golf"><span>Handicap Index</span><strong>{profile.officialGolf.handicapIndex.toFixed(1)}</strong><small>{profile.officialGolf.source} � {profile.officialGolf.status}</small></div></article><article className="performance-panel"><div className="section-heading"><span><Gauge size={18} />Fairway Performance</span></div><div className="club-grid">{profile.performance.map((club) => <ClubMetric key={club.clubCode} club={club} />)}</div></article><article className="activity-panel"><div className="section-heading"><span><History size={18} />Fairway Activity</span></div><div className="activity-list">{profile.activity.map((activity) => <div className="activity-row" key={activity.id}><time>{formatDate(activity.occurredAt)}</time><strong>{activity.title}</strong><span>{activity.detail}</span></div>)}</div><p className="supporting-copy">Live reservation/session history is already persistent. Demo performance data remains simulated until authorized simulator ingestion exists.</p></article><article className="future-panel"><div className="section-heading"><span><Trophy size={18} />Future competition surface</span></div><p>Competition, Tour Stop-style events, achievements, and Who Needs a Fourth are product directions, not active 1G functionality.</p><p className="supporting-copy">Current completed reservations: {reservations.filter((reservation) => reservation.status === "completed").length}</p></article></section>;
+}
+
+function SessionState({ reservation, loading, onStartSession, onCompleteSession }: { reservation: MemberReservation; loading: boolean; onStartSession: () => void; onCompleteSession: () => void }) {
+  const readyGuests = reservation.guests.filter((guest) => guest.status === "active" && guest.ready).length;
+  const activeGuests = reservation.guests.filter((guest) => guest.status === "active").length;
+  return <div className="session-state-card"><div><span className="state-label">{reservationStatusLabel(reservation)}</span><h3>{reservation.suiteName}</h3><p>{formatDateTime(reservation.startAt)} to {formatTime(reservation.endAt)}</p></div><dl className="state-list"><div><dt>Access</dt><dd>{accessStatusLabel(reservation.accessWindowStatus)}</dd></div><div><dt>Booking</dt><dd>{bookingModeLabel(reservation.bookingMode)}</dd></div><div><dt>Guests</dt><dd>{activeGuests === 0 ? "None" : `${readyGuests}/${activeGuests} ready`}</dd></div></dl><div className="action-stack horizontal"><button className="secondary-action" type="button" disabled={loading || reservation.status !== "confirmed"} onClick={onStartSession}><DoorOpen size={18} />Start session</button><button className="primary-action" type="button" disabled={loading || !reservation.canCompleteSession} onClick={onCompleteSession}><CheckCircle2 size={18} />Finish session</button></div></div>;
+}
+
+function ReservationList({ title, reservations, selectedReservationId, loading, onSelect, onCancel }: { title: string; reservations: MemberReservation[]; selectedReservationId?: string; loading: boolean; onSelect: (reservationId: string) => void; onCancel: (reservationId: string) => void }) {
+  return <article className="flow-panel reservation-flow"><div className="section-heading"><span><Flag size={18} />{title}</span></div><div className="reservation-stack">{reservations.length === 0 ? <EmptyState title={`No ${title.toLowerCase()} reservations`} body="Your Fairway activity will appear here as you play." /> : reservations.map((reservation) => <div className={`reservation-tile ${reservation.id === selectedReservationId ? "selected" : ""}`} key={reservation.id}><button type="button" onClick={() => onSelect(reservation.id)}><strong>{reservation.suiteName}</strong><span>{formatDateTime(reservation.startAt)} � {bookingModeLabel(reservation.bookingMode)}</span></button><div className="reservation-meta"><span>{reservationStatusLabel(reservation)}</span><span>{reservation.creditsCommitted} credit</span><span>{accessStatusLabel(reservation.accessWindowStatus)}</span></div>{reservation.guests.length > 0 && <p>{reservation.guests.filter((guest) => guest.status === "active" && guest.ready).length}/{reservation.guests.filter((guest) => guest.status === "active").length} guests ready</p>}{reservation.canCancel && <button className="danger-action" type="button" disabled={loading} onClick={() => onCancel(reservation.id)}><XCircle size={16} />Cancel</button>}</div>)}</div></article>;
 }
 
 function GuestPanel({ reservation, allowance, guestName, guestEmail, loading, limitReached, onGuestNameChange, onGuestEmailChange, onAddGuest, onGuestAction }: { reservation?: MemberReservation; allowance: number; guestName: string; guestEmail: string; loading: boolean; limitReached: boolean; onGuestNameChange: (value: string) => void; onGuestEmailChange: (value: string) => void; onAddGuest: () => void; onGuestAction: (reservationGuestId: string, action: "request" | "complete" | "eligibility" | "remove") => void }) {
   const guests = reservation?.guests ?? [];
   const activeGuests = guests.filter((guest) => guest.status === "active");
   const canAdd = Boolean(reservation && reservation.status !== "cancelled" && reservation.status !== "completed" && !limitReached && !loading);
-
-  return (
-    <div className="panel guest-panel">
-      <div className="panel-heading-inline"><h2>Guests</h2><span>{activeGuests.length}/{allowance} allowed</span></div>
-      {!reservation && <p className="muted">Select or create a reservation before adding a guest.</p>}
-      {reservation && (
-        <>
-          <div className="guest-form">
-            <label>Guest name<input value={guestName} onChange={(event) => onGuestNameChange(event.target.value)} placeholder="Guest name" /></label>
-            <label>Guest email optional<input type="email" value={guestEmail} onChange={(event) => onGuestEmailChange(event.target.value)} placeholder="guest@example.com" /></label>
-            <button type="button" disabled={!canAdd || !guestName.trim()} onClick={onAddGuest}><UserPlus size={17} />Add Guest</button>
-          </div>
-          {limitReached && <p className="limit-note">Guest limit reached for this reservation.</p>}
-          <div className="guest-list">
-            {guests.length === 0 ? <p className="muted">No guests added. Guests must be associated with this reservation and complete the required waiver before they are ready.</p> : guests.map((guest) => (
-              <article className={`guest-card ${guest.ready ? "ready" : "pending"}`} key={guest.id}>
-                <div><strong>{guest.displayName}</strong><span>{guestStatusLabel(guest)}</span></div>
-                <div className="guest-actions">
-                  <button className="secondary" type="button" disabled={loading || guest.status === "removed" || guest.waiverStatus !== "not_requested"} onClick={() => onGuestAction(guest.id, "request")}><FileCheck2 size={16} />Request</button>
-                  <button className="secondary" type="button" disabled={loading || guest.status === "removed" || guest.verificationState === "verified"} onClick={() => onGuestAction(guest.id, "complete")}><ShieldCheck size={16} />Complete</button>
-                  <button className="secondary" type="button" disabled={loading || guest.status === "removed"} onClick={() => onGuestAction(guest.id, "eligibility")}>Check</button>
-                  <button className="danger" type="button" disabled={loading || guest.status === "removed"} onClick={() => onGuestAction(guest.id, "remove")}><Trash2 size={16} />Remove</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
+  return <article className="flow-panel guest-flow"><div className="section-heading"><span><Users size={18} />Guests</span><small>{activeGuests.length}/{allowance} allowed</small></div>{!reservation && <EmptyState title="Choose a reservation" body="Guest readiness is managed for a specific reservation or session." />}{reservation && <><div className="guest-form refined"><label>Guest name<input value={guestName} onChange={(event) => onGuestNameChange(event.target.value)} placeholder="Guest name" /></label><label>Guest email optional<input type="email" value={guestEmail} onChange={(event) => onGuestEmailChange(event.target.value)} placeholder="guest@example.com" /></label><button className="secondary-action" type="button" disabled={!canAdd || !guestName.trim()} onClick={onAddGuest}><UserPlus size={17} />Add guest</button></div>{limitReached && <p className="member-warning">Guest limit reached for this membership.</p>}<div className="guest-list refined-list">{guests.length === 0 ? <p className="supporting-copy">No guests yet. Guests must be added to this reservation and complete the required waiver before they are ready.</p> : guests.map((guest) => <GuestTile key={guest.id} guest={guest} loading={loading} onGuestAction={onGuestAction} />)}</div></>}</article>;
 }
 
-function ReservationPanel({ title, reservations, selectedReservationId, loading, onSelect, onCancel }: { title: string; reservations: MemberReservation[]; selectedReservationId?: string; loading: boolean; onSelect: (reservationId: string) => void; onCancel: (reservationId: string) => void }) {
-  return (
-    <div className="panel reservations-panel">
-      <h2>{title}</h2>
-      <div className="reservation-list">
-        {reservations.length === 0 ? <p className="muted">No reservations.</p> : reservations.map((reservation) => (
-          <article className={`reservation-card ${reservation.id === selectedReservationId ? "selected" : ""}`} key={reservation.id}>
-            <button className="reservation-main" type="button" onClick={() => onSelect(reservation.id)}>
-              <span><strong>{reservation.suiteName}</strong><small>{reservation.locationName}</small></span>
-              <span><strong>{formatDateTime(reservation.startAt)}</strong><small>{formatTime(reservation.startAt)}-{formatTime(reservation.endAt)}</small></span>
-            </button>
-            <dl>
-              <dt>Mode</dt><dd>{reservation.bookingMode}</dd>
-              <dt>Status</dt><dd>{reservation.status}</dd>
-              <dt>Credits</dt><dd>{reservation.creditsCommitted}</dd>
-              <dt>Access</dt><dd>{reservation.accessWindowStatus}</dd>
-            </dl>
-            {reservation.accessGrant && <p className="muted">Access {reservation.accessGrant.status}: {formatTime(reservation.accessGrant.startsAt)}-{formatTime(reservation.accessGrant.expiresAt)}</p>}
-            {reservation.sessionStartedAt && <p className="muted">Session started {formatTime(reservation.sessionStartedAt)}</p>}
-            {reservation.sessionEndedAt && <p className="muted">Session completed {formatTime(reservation.sessionEndedAt)}</p>}
-            {reservation.guests?.length > 0 && <p className="muted">Guests: {reservation.guests.filter((guest) => guest.status === "active").length} active, {reservation.guests.filter((guest) => guest.ready).length} ready</p>}
-            {reservation.cancelledAt && <p className="muted">Cancelled {formatDateTime(reservation.cancelledAt)}</p>}
-            {reservation.canCancel && <button className="danger" type="button" disabled={loading} onClick={() => onCancel(reservation.id)}><XCircle size={17} />Cancel</button>}
-          </article>
-        ))}
-      </div>
-    </div>
-  );
+function GuestTile({ guest, loading, onGuestAction }: { guest: MemberReservationGuest; loading: boolean; onGuestAction: (reservationGuestId: string, action: "request" | "complete" | "eligibility" | "remove") => void }) {
+  return <div className={`guest-tile ${guest.ready ? "ready" : "pending"}`}><div><strong>{guest.displayName}</strong><span>{guestStatusLabel(guest)}</span></div><div className="guest-actions"><button className="quiet-button" type="button" disabled={loading || guest.status === "removed" || guest.waiverStatus !== "not_requested"} onClick={() => onGuestAction(guest.id, "request")}><FileCheck2 size={16} />Request</button><button className="quiet-button" type="button" disabled={loading || guest.status === "removed" || guest.verificationState === "verified"} onClick={() => onGuestAction(guest.id, "complete")}><ShieldCheck size={16} />Complete</button><button className="quiet-button" type="button" disabled={loading || guest.status === "removed"} onClick={() => onGuestAction(guest.id, "eligibility")}>Check</button><button className="danger-action" type="button" disabled={loading || guest.status === "removed"} onClick={() => onGuestAction(guest.id, "remove")}><Trash2 size={16} />Remove</button></div></div>;
 }
 
-function guestActionName(action: "request" | "complete" | "eligibility"): "request_waiver" | "complete_waiver" | "check_eligibility" {
-  if (action === "request") return "request_waiver";
-  if (action === "complete") return "complete_waiver";
-  return "check_eligibility";
+function ClubMetric({ club }: { club: DemoGolfProfile["performance"][number] }) {
+  return <div className="club-metric"><div><strong>{club.clubName}</strong><span>{club.provenance}</span></div><dl><div><dt>Typical carry</dt><dd>{club.typicalCarryYards} yd</dd></div>{club.ballSpeedMph && <div><dt>Ball speed</dt><dd>{club.ballSpeedMph} mph</dd></div>}<div><dt>Dispersion</dt><dd>{club.dispersionYards} yd</dd></div></dl></div>;
 }
 
-function guestStatusLabel(guest: MemberReservationGuest): string {
-  if (guest.status === "removed") return "Removed from reservation";
-  if (guest.ready && guest.accessEligible) return "Ready and in access window";
-  if (guest.ready) return "Ready when access window opens";
-  if (guest.waiverStatus === "not_requested") return "Waiver not requested";
-  if (guest.verificationState !== "verified") return "Waiver pending";
-  return "Blocked";
-}
-
-function formatTime(value: string | Date): string {
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
-}
-
-function formatDateTime(value: string | Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
-}
+function EmptyState({ title, body, action, onAction }: { title: string; body: string; action?: string; onAction?: () => void }) { return <div className="empty-state"><strong>{title}</strong><p>{body}</p>{action && onAction && <button className="quiet-button" type="button" onClick={onAction}>{action}</button>}</div>; }
+function guestActionName(action: "request" | "complete" | "eligibility"): "request_waiver" | "complete_waiver" | "check_eligibility" { if (action === "request") return "request_waiver"; if (action === "complete") return "complete_waiver"; return "check_eligibility"; }
+function guestStatusLabel(guest: MemberReservationGuest): string { if (guest.status === "removed") return "Removed"; if (guest.ready && guest.accessEligible) return "Ready now"; if (guest.ready) return "Ready when access opens"; if (guest.waiverStatus === "not_requested") return "Waiver not requested"; if (guest.verificationState !== "verified") return "Waiver pending"; return "Not ready"; }
+function reservationStatusLabel(reservation: MemberReservation): string { if (reservation.status === "checked_in") return "Session active"; if (reservation.status === "confirmed" && new Date(reservation.startAt) > new Date()) return "Booked"; if (reservation.status === "confirmed") return "Ready to start"; if (reservation.status === "completed") return "Completed"; if (reservation.status === "cancelled") return "Cancelled"; return "Held"; }
+function bookingModeLabel(mode: MemberReservation["bookingMode"]): string { if (mode === "PLAY_NOW") return "Play Now"; if (mode === "ADVANCE") return "Booked ahead"; if (mode === "OPERATOR") return "Operator assisted"; return "Instructor time"; }
+function accessStatusLabel(status: MemberReservation["accessWindowStatus"]): string { if (status === "active") return "Access active"; if (status === "scheduled") return "Access scheduled"; if (status === "expired") return "Access closed"; if (status === "revoked") return "Access closed"; return "No access yet"; }
+function availabilityLabel(slot: AvailabilityResponse["availability"][number]): string { if (slot.status === "available") return `${slot.maxPlayNowMinutes} min now`; if (slot.status === "reserved") return "Protected booking"; return "Not ready"; }
+function friendlyError(error: unknown, fallback: string): string { const message = String(error ?? ""); if (message.includes("SUITE_NOT_AVAILABLE")) return "That suite is no longer available. Your credits were not charged."; if (message.includes("ACTIVE_RESERVATION_LIMIT_REACHED")) return "You have reached the active booking limit for this membership."; if (message.includes("INSUFFICIENT_CREDITS")) return "You do not have enough credits for that session."; if (message.includes("GUEST_ALLOWANCE_EXCEEDED")) return "Guest limit reached for this membership."; if (message.includes("SESSION_ALREADY_STARTED")) return "This session has already started, so normal member cancellation is closed."; return fallback; }
+function friendlyGuestBlock(reason: unknown): string { const value = String(reason ?? ""); if (value.includes("WAIVER_ACCEPTANCE_REQUIRED")) return "waiver pending"; if (value.includes("ACCESS_WINDOW_INACTIVE")) return "access window is not active"; if (value.includes("GUEST_REMOVED")) return "guest was removed"; return "not eligible"; }
+function memberFirstName(displayName: string): string { return displayName.split("@")[0]?.split(/[ ._-]/)[0] || "You"; }
+function planLabel(code: string): string { return code.replace(/^TEST_/, "").replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function suiteDisplay(suiteId: string): string { const match = suiteId.match(/suite_(\d+)/i); return match ? `Practice Suite ${Number(match[1])}` : "Your Practice Suite"; }
+function formatTime(value: string | Date): string { return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(value)); }
+function formatDate(value: string | Date): string { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value)); }
+function formatDateTime(value: string | Date): string { return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)); }

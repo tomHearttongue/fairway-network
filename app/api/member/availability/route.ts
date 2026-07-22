@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedMemberContext, requiredEnvironmentVariables } from "@/application/member-flow/authenticated-context";
+import { TOM_DEMO_GOLF_PROFILE } from "@/application/member-flow/demo-golf-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function GET() {
       availability: state.availability,
       reservations: state.memberReservations,
       auditEvents: state.auditEvents,
+      demoGolfProfile: TOM_DEMO_GOLF_PROFILE,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "UNKNOWN_ERROR" }, { status: 500 });

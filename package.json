@@ -14,7 +14,8 @@
     "verify:vs1c": "node scripts/verify-vertical-slice-1c.mjs",
     "verify:vs1d": "node scripts/verify-vertical-slice-1d.mjs",
     "verify:vs1e": "node scripts/verify-vertical-slice-1e.mjs",
-    "verify:vs1f": "node scripts/verify-vertical-slice-1f.mjs"
+    "verify:vs1f": "node scripts/verify-vertical-slice-1f.mjs",
+    "verify:vs1g": "node scripts/verify-vertical-slice-1g.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "7.5.20",

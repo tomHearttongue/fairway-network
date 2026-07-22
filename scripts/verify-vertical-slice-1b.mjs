@@ -60,7 +60,7 @@ async function login(page, email) {
 
 async function visibleCredits(page) {
   const text = await page.locator("body").innerText();
-  const match = text.match(/Credits\s+(\d+)/);
+  const match = text.match(/Credits\s+(\d+)/i) ?? text.match(/(\d+)\s+credits/i);
   if (!match) throw new Error(`Credits not visible in page text: ${text.slice(0, 400)}`);
   return Number(match[1]);
 }
@@ -167,14 +167,14 @@ try {
   });
 
   await login(page, email);
-  await page.getByText("TEST_BIRDIE").waitFor({ timeout: 30000 });
+  await page.getByText("Birdie membership").waitFor({ timeout: 30000 });
   assertEqual(await visibleCredits(page), 124, "initial visible credits");
   let snapshot = await dbSnapshot(client, email, user.id, keys);
   for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 124 })) assertEqual(snapshot[label], value, label);
   log("BOOTSTRAP_AND_INITIAL_CREDITS_VERIFIED");
 
-  await page.getByRole("button", { name: /Reserve/i }).click();
-  await page.getByText(/Created ADVANCE reservation/i).waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: /Book/i }).first().click();
+  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
   const advanceBody = reservationBodies.at(-1);
   const advanceRetry = await page.evaluate(async (body) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -184,7 +184,7 @@ try {
   log("ADVANCE_RESERVATION_AND_RETRY_VERIFIED");
 
   await page.getByRole("button", { name: /Play Now/i }).click();
-  await page.getByText(/Created PLAY_NOW reservation/i).waitFor({ timeout: 30000 });
+  await page.getByText(/You're ready to play/i).waitFor({ timeout: 30000 });
   const playNowBody = reservationBodies.at(-1);
   const playNowRetry = await page.evaluate(async (body) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -194,9 +194,13 @@ try {
   log("PLAY_NOW_AND_RETRY_VERIFIED");
 
   await page.getByRole("button", { name: /Start Session/i }).click();
-  await page.getByText(/Started simulated Practice Suite session/i).waitFor({ timeout: 30000 });
-  await page.getByRole("button", { name: /Start Session/i }).click();
-  await page.getByText(/Started simulated Practice Suite session/i).waitFor({ timeout: 30000 });
+  await page.getByText(/Session started/i).waitFor({ timeout: 30000 });
+  const playNowReservationId = playNowRetry.body.reservation.id;
+  const sessionRetry = await page.evaluate(async ({ reservationId, key }) => {
+    const response = await fetch("/api/member/session/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reservationId, idempotencyKey: key }) });
+    return { status: response.status, body: await response.json() };
+  }, { reservationId: playNowReservationId, key: keys.sessionKeys.at(-1) });
+  if (sessionRetry.status !== 200) throw new Error(`session retry failed ${JSON.stringify(sessionRetry)}`);
   log("SESSION_START_AND_RETRY_VERIFIED");
 
   await page.reload({ waitUntil: "domcontentloaded" });

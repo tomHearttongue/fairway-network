@@ -71,7 +71,7 @@ async function login(page, email) {
 
 async function visibleCredits(page) {
   const text = await page.locator("body").innerText();
-  const match = text.match(/Credits\s+(\d+)/);
+  const match = text.match(/Credits\s+(\d+)/i) ?? text.match(/(\d+)\s+credits/i);
   if (!match) throw new Error(`Credits not visible: ${text.slice(0, 500)}`);
   return Number(match[1]);
 }
@@ -149,17 +149,18 @@ try {
   });
 
   await login(page, email);
-  await page.getByText("Upcoming Reservations").waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.getByText("Upcoming", { exact: true }).waitFor({ timeout: 30000 });
   assertEqual(await visibleCredits(page), 124, "initial visible credits");
   let snapshot = await dbSnapshot(client, email, user.id, keys);
   for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 124 })) assertEqual(snapshot[label], value, label);
   log("BOOTSTRAP_AND_RESERVATION_RETRIEVAL_VERIFIED");
 
-  await page.getByRole("button", { name: /Reserve/i }).click();
-  await page.getByText(/Created ADVANCE reservation/i).waitFor({ timeout: 30000 });
-  await page.getByText("ADVANCE").first().waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: /Book/i }).first().click();
+  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
+  await page.getByText("Booked ahead").first().waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: /Cancel/i }).first().click();
-  await page.getByText(/Cancelled reservation/i).waitFor({ timeout: 30000 });
+  await page.getByText(/Reservation cancelled/i).waitFor({ timeout: 30000 });
   assertEqual(await visibleCredits(page), 124, "credits after UI cancellation");
   log("UI_CANCELLATION_AND_CREDIT_RESTORE_VERIFIED");
 
@@ -171,8 +172,8 @@ try {
   if (retryCancel.status !== 200 || retryCancel.body.idempotent !== true) throw new Error(`retry cancel failed ${JSON.stringify(retryCancel)}`);
   log("IDEMPOTENT_CANCEL_RETRY_VERIFIED");
 
-  await page.getByRole("button", { name: /Reserve/i }).click();
-  await page.getByText(/Created ADVANCE reservation/i).waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: /Book/i }).first().click();
+  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
   const secondAdvance = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.status === "confirmed" && row.mode === "ADVANCE");
   const concurrentCancel = await page.evaluate(async (reservationId) => {
     const [a, b] = await Promise.all([
@@ -185,9 +186,9 @@ try {
   log("CONCURRENT_CANCEL_VERIFIED");
 
   await page.getByRole("button", { name: /Play Now/i }).click();
-  await page.getByText(/Created PLAY_NOW reservation/i).waitFor({ timeout: 30000 });
+  await page.getByText(/You're ready to play/i).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: /Start Session/i }).click();
-  await page.getByText(/Started simulated Practice Suite session/i).waitFor({ timeout: 30000 });
+  await page.getByText(/Session started/i).waitFor({ timeout: 30000 });
   const playNow = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.mode === "PLAY_NOW");
   const cancelStartedSession = await page.evaluate(async (reservationId) => {
     const response = await fetch(`/api/member/reservations/${reservationId}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotencyKey: `cancel-started-${reservationId}` }) });
@@ -227,7 +228,8 @@ try {
     const restartPage = await (await browserAfterRestart.newContext({ viewport: { width: 390, height: 844 } })).newPage();
     await login(restartPage, email);
     assertEqual(await visibleCredits(restartPage), 123, "credits after dev server restart");
-    await restartPage.getByText("Reservation History").waitFor({ timeout: 30000 });
+    await restartPage.getByRole("button", { name: "Play", exact: true }).click();
+    await restartPage.getByText("History", { exact: true }).waitFor({ timeout: 30000 });
   } finally {
     await browserAfterRestart.close();
   }

@@ -24,6 +24,7 @@ export async function GET() {
         availableCredits: state.availableCredits,
       },
       availability: state.availability,
+      reservations: state.memberReservations,
       auditEvents: state.auditEvents,
     });
   } catch (error) {

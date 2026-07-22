@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:vs1b": "node scripts/verify-vertical-slice-1b.mjs"
+    "verify:vs1b": "node scripts/verify-vertical-slice-1b.mjs",
+    "verify:vs1c": "node scripts/verify-vertical-slice-1c.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "7.5.20",

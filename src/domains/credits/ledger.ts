@@ -42,6 +42,17 @@ export class CreditLedger {
     return this.record({ ...input, type: "release", balanceDelta: 0 });
   }
 
+  refund(input: BaseCreditInput & { relatedEntryId: string }): CreditLedgerEntry {
+    this.assertCommitExists(input.relatedEntryId, input.memberProfileId, input.amount);
+    const existingRefund = this.entries.find((entry) => entry.relatedEntryId === input.relatedEntryId && entry.type === "refund");
+    if (existingRefund && existingRefund.idempotencyKey !== input.idempotencyKey) throw new Error("CREDIT_COMMIT_ALREADY_REFUNDED");
+    return this.record({ ...input, type: "refund", balanceDelta: input.amount });
+  }
+
+  committedEntryForHold(holdId: string, memberProfileId: string): CreditLedgerEntry | undefined {
+    return this.entries.find((entry) => entry.relatedEntryId === holdId && entry.memberProfileId === memberProfileId && entry.type === "commit");
+  }
+
   availableBalance(memberProfileId: string): number {
     const committedBalance = this.entries.filter((entry) => entry.memberProfileId === memberProfileId).reduce((sum, entry) => sum + entry.balanceDelta, 0);
     const openHolds = this.entries
@@ -77,6 +88,11 @@ export class CreditLedger {
   private assertHoldExists(holdId: string, memberProfileId: string, amount: number): void {
     const hold = this.entries.find((entry) => entry.id === holdId && entry.memberProfileId === memberProfileId && entry.type === "hold");
     if (!hold || hold.amount !== amount) throw new Error("CREDIT_HOLD_NOT_FOUND");
+  }
+
+  private assertCommitExists(commitId: string, memberProfileId: string, amount: number): void {
+    const commit = this.entries.find((entry) => entry.id === commitId && entry.memberProfileId === memberProfileId && entry.type === "commit");
+    if (!commit || commit.amount !== amount) throw new Error("CREDIT_COMMIT_NOT_FOUND");
   }
 }
 

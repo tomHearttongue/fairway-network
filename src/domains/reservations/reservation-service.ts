@@ -1,15 +1,29 @@
 import { CreditLedger } from "@/domains/credits/ledger";
+import type { CreditLedgerEntry } from "@/domains/credits/ledger";
 import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
 import type { MembershipPlanSeed } from "@/domains/membership/test-birdie";
 import { addMinutes, calculateAvailability, overlaps } from "@/domains/reservations/availability";
+import { assertMemberCancellationAllowed } from "@/domains/reservations/lifecycle";
 import type { BookingMode, Reservation, ReservationRepository } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
+
+const DEVELOPMENT_CANCELLATION_REASON = "Development cancellation policy: member cancelled before reservation start time";
 
 export class ReservationService {
   constructor(private readonly dependencies: { clock: Clock; location: LocationConfig; suites: PracticeSuite[]; repository: ReservationRepository; ledger: CreditLedger; membershipPlan: MembershipPlanSeed }) {}
 
   async getAvailability(at = this.dependencies.clock.now()) {
     return calculateAvailability({ location: this.dependencies.location, suites: this.dependencies.suites, reservations: await this.dependencies.repository.listReservations(this.dependencies.location.id), at });
+  }
+
+  async listMemberReservations(memberProfileId: string, at = this.dependencies.clock.now()): Promise<MemberReservationLists> {
+    const reservations = (await this.dependencies.repository.listReservations(this.dependencies.location.id))
+      .filter((reservation) => reservation.memberProfileId === memberProfileId)
+      .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+    return {
+      upcoming: reservations.filter((reservation) => reservation.startAt >= at && reservation.status !== "cancelled" && reservation.status !== "completed"),
+      history: reservations.filter((reservation) => reservation.startAt < at || reservation.status === "cancelled" || reservation.status === "completed"),
+    };
   }
 
   async createAdvanceReservation(input: CreateReservationInput): Promise<Reservation> {
@@ -27,6 +41,40 @@ export class ReservationService {
     if (durationMinutes < this.dependencies.location.minimumSessionMinutes) throw new Error("PLAY_NOW_TOO_SHORT");
 
     return this.createReservation({ memberProfileId: input.memberProfileId, suiteId: candidate.suiteId, bookingMode: "PLAY_NOW", startAt: now, endAt: addMinutes(now, durationMinutes), creditCost: input.creditCost, idempotencyKey: input.idempotencyKey });
+  }
+
+  async cancelReservation(input: CancelReservationInput): Promise<CancelReservationOutput> {
+    const now = this.dependencies.clock.now();
+    const reservations = await this.dependencies.repository.listReservations(this.dependencies.location.id);
+    const reservation = reservations.find((item) => item.id === input.reservationId && item.memberProfileId === input.memberProfileId);
+    if (!reservation) throw new Error("RESERVATION_NOT_FOUND");
+
+    assertMemberCancellationAllowed({ reservation, now, hasStartedSession: input.hasStartedSession });
+    if (reservation.status === "cancelled") return { reservation, refundedCredits: 0, idempotent: true };
+
+    const commit = this.dependencies.ledger.committedEntryForHold(reservation.creditHoldEntryId, input.memberProfileId);
+    if (!commit) throw new Error("CREDIT_COMMIT_NOT_FOUND");
+
+    const cancellation = await this.dependencies.repository.cancelReservationAtomically({
+      reservationId: input.reservationId,
+      memberProfileId: input.memberProfileId,
+      cancelledAt: now,
+      reason: DEVELOPMENT_CANCELLATION_REASON,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    if (!cancellation.transitioned) return { reservation: cancellation.reservation, refundedCredits: 0, idempotent: true };
+
+    const refund = this.dependencies.ledger.refund({
+      memberProfileId: input.memberProfileId,
+      amount: commit.amount,
+      relatedEntryId: commit.id,
+      idempotencyKey: `${input.reservationId}:credit-refund`,
+      reason: DEVELOPMENT_CANCELLATION_REASON,
+      createdAt: now,
+    });
+
+    return { reservation: cancellation.reservation, refundedCredits: refund.amount, refundEntry: refund, idempotent: false };
   }
 
   private async createReservation(input: CreateReservationInput & { bookingMode: BookingMode }): Promise<Reservation> {
@@ -74,4 +122,23 @@ export interface CreatePlayNowInput {
   requestedMinutes?: number;
   creditCost: number;
   idempotencyKey: string;
+}
+
+export interface CancelReservationInput {
+  memberProfileId: string;
+  reservationId: string;
+  idempotencyKey: string;
+  hasStartedSession?: boolean;
+}
+
+export interface CancelReservationOutput {
+  reservation: Reservation;
+  refundedCredits: number;
+  idempotent: boolean;
+  refundEntry?: CreditLedgerEntry;
+}
+
+export interface MemberReservationLists {
+  upcoming: Reservation[];
+  history: Reservation[];
 }

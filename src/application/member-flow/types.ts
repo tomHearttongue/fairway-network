@@ -14,6 +14,7 @@ export interface PersistentMemberState {
   location: LocationConfig;
   suites: PracticeSuite[];
   availability: AvailabilitySlot[];
+  memberReservations: PersistentReservationSummary[];
   auditEvents: AuditEvent[];
 }
 
@@ -21,6 +22,14 @@ export interface ReservationResult {
   reservation: PersistentReservation;
   accessGrant: AccessGrant;
   availableCredits: number;
+  idempotent: boolean;
+}
+
+export interface CancellationResult {
+  reservation: PersistentReservation;
+  accessGrant?: PersistentAccessGrant | null;
+  availableCredits: number;
+  refundedCredits: number;
   idempotent: boolean;
 }
 
@@ -36,6 +45,26 @@ export interface PersistentReservation {
   creditHoldEntryId: string;
   idempotencyKey: string;
   createdAt: Date;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+}
+
+export interface PersistentReservationSummary extends PersistentReservation {
+  locationName: string;
+  suiteName: string;
+  creditsCommitted: number;
+  canCancel: boolean;
+  accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
+  accessGrant?: PersistentAccessGrant | null;
+  sessionStartedAt?: Date;
+}
+
+export interface PersistentAccessGrant {
+  id: string;
+  status: "active" | "revoked" | "expired";
+  startsAt: Date;
+  expiresAt: Date;
+  revokedAt?: Date;
 }
 
 export interface StartSessionResult {

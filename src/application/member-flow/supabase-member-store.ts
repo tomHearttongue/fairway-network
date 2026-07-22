@@ -4,7 +4,7 @@ import { calculateAvailability } from "@/domains/reservations/availability";
 import { FakeSessionProvider } from "@/domains/sessions/fake-session-provider";
 import type { AuthPrincipal } from "@/domains/identity/types";
 import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
-import type { PersistentMemberState, PersistentReservation, ReservationResult, StartSessionResult } from "@/application/member-flow/types";
+import type { CancellationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationSummary, ReservationResult, StartSessionResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
 
@@ -39,6 +39,7 @@ export class SupabaseMemberStore {
       location,
       suites,
       availability: calculateAvailability({ location, suites, reservations, at: this.clock.now() }),
+      memberReservations: (state.memberReservations ?? []).map(mapReservationSummary),
       auditEvents: state.auditEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) })),
     };
   }
@@ -82,9 +83,28 @@ export class SupabaseMemberStore {
     };
   }
 
+  async cancelReservation(input: { memberProfileId: string; reservationId: string; idempotencyKey: string }): Promise<CancellationResult> {
+    const { data, error } = await this.supabase.rpc("fairway_cancel_reservation", {
+      p_member_profile_id: input.memberProfileId,
+      p_reservation_id: input.reservationId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    const payload = data as { reservation: StoredReservation; accessGrant?: StoredAccessGrant | null; availableCredits: number; refundedCredits: number; idempotent: boolean };
+    return {
+      reservation: mapReservation(payload.reservation),
+      accessGrant: payload.accessGrant ? mapPersistentAccessGrant(payload.accessGrant) : null,
+      availableCredits: payload.availableCredits,
+      refundedCredits: payload.refundedCredits,
+      idempotent: payload.idempotent,
+    };
+  }
+
   async startSession(input: { memberProfileId: string; reservationId: string; idempotencyKey: string }): Promise<StartSessionResult> {
     const state = await this.getStoredMemberState(input.memberProfileId);
-    const reservations = state.reservations.map(mapReservation);
+    const reservations = state.reservations.map(mapReservation).concat((state.memberReservations ?? []).map(mapReservationSummary));
     const reservation = reservations.find((item) => item.id === input.reservationId);
     if (!reservation) throw new Error("RESERVATION_NOT_FOUND");
 
@@ -146,6 +166,21 @@ function mapReservation(reservation: StoredReservation): PersistentReservation {
     creditHoldEntryId: reservation.credit_hold_entry_id ?? reservation.creditHoldEntryId,
     idempotencyKey: reservation.idempotency_key ?? reservation.idempotencyKey ?? reservation.id,
     createdAt: new Date(reservation.created_at ?? reservation.createdAt),
+    cancelledAt: toOptionalDate(reservation.cancelled_at ?? reservation.cancelledAt),
+    cancellationReason: reservation.cancellation_reason ?? reservation.cancellationReason ?? undefined,
+  };
+}
+
+function mapReservationSummary(reservation: StoredReservationSummary): PersistentReservationSummary {
+  return {
+    ...mapReservation(reservation),
+    locationName: reservation.location_name ?? reservation.locationName,
+    suiteName: reservation.suite_name ?? reservation.suiteName,
+    creditsCommitted: reservation.credits_committed ?? reservation.creditsCommitted ?? 0,
+    canCancel: reservation.can_cancel ?? reservation.canCancel ?? false,
+    accessWindowStatus: reservation.access_window_status ?? reservation.accessWindowStatus ?? "none",
+    accessGrant: (reservation.access_grant ?? reservation.accessGrant) ? mapPersistentAccessGrant((reservation.access_grant ?? reservation.accessGrant) as StoredAccessGrant) : null,
+    sessionStartedAt: toOptionalDate(reservation.session_started_at ?? reservation.sessionStartedAt),
   };
 }
 
@@ -156,11 +191,25 @@ function mapAccessGrant(accessGrant: StoredAccessGrant, credentialLabel: string)
     memberProfileId: accessGrant.member_profile_id,
     locationId: accessGrant.location_id,
     suiteId: accessGrant.suite_id,
-    startsAt: new Date(accessGrant.starts_at),
-    expiresAt: new Date(accessGrant.expires_at),
+    startsAt: new Date(accessGrant.starts_at ?? accessGrant.startsAt),
+    expiresAt: new Date(accessGrant.expires_at ?? accessGrant.expiresAt),
     provider: "fake" as const,
     credentialLabel,
   };
+}
+
+function mapPersistentAccessGrant(accessGrant: StoredAccessGrant): PersistentAccessGrant {
+  return {
+    id: accessGrant.id,
+    status: accessGrant.status ?? "active",
+    startsAt: new Date(accessGrant.starts_at ?? accessGrant.startsAt),
+    expiresAt: new Date(accessGrant.expires_at ?? accessGrant.expiresAt),
+    revokedAt: toOptionalDate(accessGrant.revoked_at ?? accessGrant.revokedAt),
+  };
+}
+
+function toOptionalDate(value: string | Date | null | undefined): Date | undefined {
+  return value ? new Date(value) : undefined;
 }
 
 interface StoredMemberState {
@@ -171,6 +220,7 @@ interface StoredMemberState {
   location: LocationConfig;
   suites: PracticeSuite[];
   reservations: StoredReservation[];
+  memberReservations?: StoredReservationSummary[];
   auditEvents: Array<{ id: string; type: string; actorId: string; resourceId: string; reason: string; createdAt: string }>;
 }
 
@@ -195,6 +245,27 @@ interface StoredReservation {
   idempotencyKey?: string;
   created_at?: string;
   createdAt: string;
+  cancelled_at?: string | null;
+  cancelledAt?: string | null;
+  cancellation_reason?: string | null;
+  cancellationReason?: string | null;
+}
+
+interface StoredReservationSummary extends StoredReservation {
+  location_name?: string;
+  locationName: string;
+  suite_name?: string;
+  suiteName: string;
+  credits_committed?: number;
+  creditsCommitted?: number;
+  can_cancel?: boolean;
+  canCancel?: boolean;
+  access_window_status?: PersistentReservationSummary["accessWindowStatus"];
+  accessWindowStatus?: PersistentReservationSummary["accessWindowStatus"];
+  access_grant?: StoredAccessGrant | null;
+  accessGrant?: StoredAccessGrant | null;
+  session_started_at?: string | null;
+  sessionStartedAt?: string | null;
 }
 
 interface StoredAccessGrant {
@@ -203,8 +274,13 @@ interface StoredAccessGrant {
   member_profile_id: string;
   location_id: string;
   suite_id: string;
-  starts_at: string;
-  expires_at: string;
+  starts_at?: string;
+  startsAt: string;
+  expires_at?: string;
+  expiresAt: string;
+  status?: PersistentAccessGrant["status"];
+  revoked_at?: string | null;
+  revokedAt?: string | null;
 }
 
 interface StoredSession {

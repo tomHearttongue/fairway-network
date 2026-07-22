@@ -5,7 +5,7 @@ import { TEST_BIRDIE } from "@/domains/membership/test-birdie";
 import { addMinutes } from "@/domains/reservations/availability";
 import { InMemoryReservationRepository } from "@/domains/reservations/in-memory-reservation-repository";
 import { ReservationService } from "@/domains/reservations/reservation-service";
-import type { CreateReservationRecord, Reservation, ReservationRepository } from "@/domains/reservations/types";
+import type { CancelReservationRecord, CancelReservationResult, CreateReservationRecord, Reservation, ReservationRepository } from "@/domains/reservations/types";
 import { FixedClock } from "@/shared/clock";
 
 const memberProfileId = "mp_integration";
@@ -34,6 +34,10 @@ class FailingReservationRepository implements ReservationRepository {
 
   async createReservationAtomically(_input: CreateReservationRecord): Promise<Reservation> {
     throw new Error("RESERVATION_WRITE_FAILED");
+  }
+
+  async cancelReservationAtomically(_input: CancelReservationRecord): Promise<CancelReservationResult> {
+    throw new Error("RESERVATION_CANCEL_WRITE_FAILED");
   }
 }
 

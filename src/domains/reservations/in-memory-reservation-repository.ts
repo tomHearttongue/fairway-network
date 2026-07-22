@@ -1,5 +1,6 @@
-﻿import { overlaps } from "@/domains/reservations/availability";
-import type { CreateReservationRecord, Reservation, ReservationRepository } from "@/domains/reservations/types";
+import { overlaps } from "@/domains/reservations/availability";
+import { assertReservationTransition } from "@/domains/reservations/lifecycle";
+import type { CancelReservationRecord, CancelReservationResult, CreateReservationRecord, Reservation, ReservationRepository } from "@/domains/reservations/types";
 
 const ACTIVE_STATUSES = new Set(["held", "confirmed", "checked_in"]);
 
@@ -37,9 +38,32 @@ export class InMemoryReservationRepository implements ReservationRepository {
     this.transaction = operation.then(() => undefined, () => undefined);
     return operation;
   }
+
+  async cancelReservationAtomically(input: CancelReservationRecord): Promise<CancelReservationResult> {
+    const operation = this.transaction.then(() => {
+      const index = this.reservations.findIndex((reservation) => reservation.id === input.reservationId && reservation.memberProfileId === input.memberProfileId);
+      if (index === -1) throw new Error("RESERVATION_NOT_FOUND");
+
+      const reservation = this.reservations[index];
+      if (reservation.status === "cancelled") return { reservation: cloneReservation(reservation), transitioned: false };
+
+      assertReservationTransition(reservation.status, "cancelled");
+      const cancelled: Reservation = { ...reservation, status: "cancelled", cancelledAt: new Date(input.cancelledAt), cancellationReason: input.reason };
+      this.reservations[index] = cancelled;
+      return { reservation: cloneReservation(cancelled), transitioned: true };
+    });
+
+    this.transaction = operation.then(() => undefined, () => undefined);
+    return operation;
+  }
 }
 
 function cloneReservation(reservation: Reservation): Reservation {
-  return { ...reservation, startAt: new Date(reservation.startAt), endAt: new Date(reservation.endAt), createdAt: new Date(reservation.createdAt) };
+  return {
+    ...reservation,
+    startAt: new Date(reservation.startAt),
+    endAt: new Date(reservation.endAt),
+    createdAt: new Date(reservation.createdAt),
+    cancelledAt: reservation.cancelledAt ? new Date(reservation.cancelledAt) : undefined,
+  };
 }
-

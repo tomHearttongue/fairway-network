@@ -1,4 +1,5 @@
 export interface MembershipPlanSeed {
+  id?: string;
   code: string;
   name: string;
   monthlyCredits: number;

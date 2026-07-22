@@ -219,3 +219,24 @@ button.restore:disabled { opacity: .45; }
   .facilities-shell { padding: 12px; }
   .task-card dl { grid-template-columns: 1fr; }
 }
+
+.guest-panel { grid-column: span 12; }
+.panel-heading-inline { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.panel-heading-inline h2 { margin: 0; font-size: 17px; }
+.panel-heading-inline span { color: var(--muted); font-size: 13px; font-weight: 700; }
+.guest-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-bottom: 12px; }
+.guest-list { display: grid; gap: 10px; }
+.guest-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fbfcfb; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.guest-card.ready { border-color: rgba(29,107,68,.35); background: #f3fbf5; }
+.guest-card.pending { border-color: #ddd8cc; }
+.guest-card strong, .guest-card span { display: block; overflow-wrap: anywhere; }
+.guest-card span { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.guest-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.guest-actions button { min-height: 38px; }
+.limit-note { margin: 0 0 12px; border: 1px solid rgba(143,47,36,.25); background: #fff4f2; color: var(--danger); border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 700; }
+
+@media (max-width: 860px) {
+  .guest-form, .guest-card { grid-template-columns: 1fr; }
+  .guest-actions { justify-content: stretch; }
+  .guest-actions button, .guest-form button { justify-content: center; width: 100%; }
+}

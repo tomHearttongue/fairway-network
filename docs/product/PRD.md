@@ -42,13 +42,15 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | PP-UX-001 | Digital experience is a core Fairway product, not an administrative layer. | LOCKED | network | Member software must feel premium, intuitive, fast, and thoughtfully designed. Functional acceptance alone does not equal product acceptance. |
 | PP-UX-002 | Member-facing UX is mobile-first, low-friction, visually intentional, accessible, and distinct from generic SaaS dashboards. | LOCKED | product type | Applies incrementally per slice; does not require premature full design system. |
 | PP-UX-003 | Operator UX is intentionally designed for operational clarity, fast situational awareness, safe destructive actions, and minimal navigation friction. | LOCKED | product type | Implemented VS1D. |
+| PP-DATA-001 | Every meaningful vertical slice identifies domain events, behavioral telemetry, success KPIs, guardrails, stable dimensions, diagnosis needs, privacy considerations, and PRD/test traceability. | LOCKED | network | Effective VS1F; see `docs/product/data/DATA-OBSERVABILITY-CONTRACT.md`. |
+| PP-DATA-002 | Transactional/domain truth, product analytics, and technical observability remain distinct; analytics or observability outages must not block core transactions. | LOCKED | network | Effective VS1F. |
 
 ## 3. Personas / Actors
 
 | Actor | Description | Status |
 |---|---|---|
 | Member | Paying or test member with a Fairway MemberProfile, membership entitlement, credits, reservations, sessions, and future Golfer Passport history. | LOCKED |
-| Guest | Session-associated non-member invited by a host member. Requires identity, waiver, allowance/payment, and time-scoped access. | DEFERRED |
+| Guest | Session-associated non-member invited by a host member. Requires identity, waiver, allowance/payment, and time-scoped access. | LOCKED |
 | Facilities / Cleaning | Restricted location-scoped actor focused on suite readiness, turnover, cleaning, inspection flagging, and cleaning-relevant facility context. Distinct from full operator. | LOCKED |
 | Operator / General Manager | Authorized facility operator responsible for suite state, exceptions, member support, and governed overrides. | LOCKED |
 | Instructor | Future provider of instruction and possibly instructor bookings. | DEFERRED |
@@ -72,6 +74,11 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | Reservation | Canonical Fairway booking record. Play Now is a booking mode, not a separate core model unless later justified. | LOCKED |
 | Session | Actual facility/practice usage associated with a reservation. Distinct from reservation lifecycle. | LOCKED |
 | AccessGrant | Fairway-owned authorization record for time-bound physical access. Access vendor executes; Fairway decides eligibility. | LOCKED |
+| GuestIdentity | Durable Fairway guest identity with minimum identifying information and optional future path to member conversion without losing historical association. | LOCKED |
+| ReservationGuest | Reservation/session-scoped guest association between host MemberProfile, guest identity, and eligible Fairway reservation/session. | LOCKED |
+| AgreementVersion | Versioned waiver/agreement requirement. Final legal content remains expert-reviewed and is not authored by this platform slice. | LOCKED |
+| AgreementAcceptance | Versioned evidence record for guest agreement/waiver completion, with provider/source, evidence reference, timestamp, and verification state. | LOCKED |
+| DomainEvent | Transaction-safe domain event record for future analytics/observability routing without coupling core logic to a vendor. | LOCKED |
 | AuditEvent | Attributable record of meaningful state changes, overrides, and sensitive actions. | LOCKED |
 | Competition | Fairway-owned engagement engine for events, challenges, rankings, streaks, achievements, and future Golfer Passport visibility. | DEFERRED |
 
@@ -110,6 +117,21 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-RES-007 | Reservation status transitions must be centralized and not arbitrary mutations. | LOCKED | reservation | Implemented VS1C in domain and DB functions. |
 | FR-RES-008 | Operator cancellation/override must require authorization, actor identity, reason, audit, and compensating actions. | LOCKED | location/reservation | Implemented VS1D. |
 
+### Guests / Waivers
+
+| ID | Requirement | Status | Scope | Implementation / Tests |
+|---|---|---|---|---|
+| FR-GST-001 | Guest identity must be durable and not modeled only as free text on a reservation. | LOCKED | guest | Implemented VS1F via `guests` and `reservation_guests`; verified by `pnpm verify:vs1f`. |
+| FR-GST-002 | A guest remains host-associated and reservation/session scoped; guests do not receive persistent unrestricted facility access. | LOCKED | reservation/guest | Implemented VS1F; fake access remains host/session scoped. |
+| FR-GST-003 | Guest allowance is enforced server-side from membership-plan entitlement data. | LOCKED | membership plan/reservation | Implemented VS1F; verified by over-limit and concurrent-add checks. |
+| FR-GST-004 | Retry and concurrent guest-add attempts must not create duplicates or bypass allowance. | LOCKED | reservation/guest | Implemented VS1F; verified by `pnpm verify:vs1f` and `tests/domains/guests.test.ts`. |
+| FR-GST-005 | Waiver/agreement acceptance is versioned evidence, not a Boolean. | LOCKED | guest/waiver | Implemented VS1F via `agreement_versions` and `agreement_acceptances`. |
+| FR-GST-006 | Fake waiver adapter/boundary may represent request and completion status until a real API-capable waiver vendor is selected. | PROVISIONAL | vendor/guest | Implemented VS1F with fake request/completion evidence; real vendor remains deferred. |
+| FR-GST-007 | Final guest and member waiver language, legal effectiveness, and minor/guardian workflow remain expert-review items. | UNRESOLVED | legal/jurisdiction | EXPERT REVIEW. |
+| FR-GST-008 | Guest readiness requires valid association, allowance, required waiver/compliance, and valid host reservation/session context. | LOCKED | reservation/guest/access | Implemented VS1F; access window eligibility checked separately. |
+| FR-GST-009 | Member can add, view, understand readiness, and remove guests within eligibility boundaries. | LOCKED | product type/member | Implemented VS1F in the member reservation guest panel. |
+| FR-GST-010 | Guest PII must be minimized in analytics, public displays, Facilities views, and broad operator context. | LOCKED | privacy | Implemented VS1F; verifier asserts Facilities state and domain events omit guest name/email. |
+
 ### Access
 
 | ID | Requirement | Status | Scope | Implementation / Tests |
@@ -118,6 +140,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-ACC-002 | Access grants are created only after reservation persistence succeeds. | LOCKED | reservation/access | Implemented VS1B. |
 | FR-ACC-003 | Cancelled reservations must not produce a valid unlock result; associated access is revoked/invalidated while history is preserved. | LOCKED | reservation/access | Implemented VS1C. |
 | FR-ACC-004 | Real Kisi integration remains deferred behind an AccessProvider adapter until commercial validation. | DEFERRED | vendor/location | Fake adapter only. |
+| FR-ACC-005 | Guest access eligibility requires host reservation/session validity, reservation-scoped association, waiver/compliance satisfaction, allowance satisfaction, and applicable access window. | LOCKED | reservation/guest/access | Implemented VS1F with fake access eligibility checks; real Kisi out of scope. |
 
 ### Facility Operations
 
@@ -167,6 +190,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-005 | Cleaning Mode must answer: what should I service now without disrupting golfers? | LOCKED | product type/facilities | Implemented VS1E. |
 | FR-UX-006 | Arrival Zone display is a network-connected Fairway product surface for future community, competition, event, achievement, and operational content. | LOCKED | product type/location | Display app deferred. |
 | FR-UX-007 | Arrival Zone public content must use privacy-safe identities/data and must not become a manually maintained slideshow dependency. | LOCKED | product type/location | Display app deferred. |
+| FR-UX-008 | Guest UX clearly distinguishes guest added, waiver pending, ready, blocked/ineligible, limit reached, loading, error, success, and removal states. | LOCKED | product type/member | Implemented VS1F in mobile-responsive member guest workflow. |
 
 ## 6. Business Policies And Rules
 
@@ -183,6 +207,10 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | BP-009 | Operator overrides require actor, reason, timestamp, previous/new state where relevant, and audit. | LOCKED | operator/location | Implemented VS1D. |
 | BP-010 | A cleaning task being due does not always mean the suite must immediately become unavailable for every future booking. | LOCKED | suite/location | Implemented VS1E. |
 | BP-011 | MVP cleaning priority is deterministic and reservation-aware: urgent turnover/inspection before upcoming reservations, shortest safe service window, overdue required work, then long-vacancy lower-priority work. | LOCKED | location/suite | Implemented VS1E. |
+| BP-012 | MVP guest allowances: Champions 1, Birdie 1, Eagle 2, Tour 3, Night Owl 1; TEST_BIRDIE remains 1. | CONFIGURABLE | membership plan | Implemented VS1F for TEST_BIRDIE from membership-plan entitlement data; other MVP plan values remain seed/config requirements when plans are added. |
+| BP-013 | Paid extra-guest economics are not defined and must not be invented. | UNRESOLVED | membership plan/billing | Out of scope. |
+| BP-014 | Guest may accompany host under controlled session-scoped access; persistent guest credentials are out of scope unless later technically required. | LOCKED | guest/access | Implemented VS1F without persistent guest credentials. |
+| BP-015 | Final guest waiver language, minor policy, guardian authorization, and legal effectiveness require expert review. | UNRESOLVED | legal/jurisdiction | EXPERT REVIEW. |
 
 ## 7. Configuration And Policy Scope
 
@@ -237,6 +265,9 @@ Unresolved commercial policies must not be implemented as permanent behavior wit
 | NFR-005 | Location isolation must be preserved from the first implementation even with one location. | LOCKED | multi-location | Implemented by location_id boundaries. |
 | NFR-006 | Vendor-specific IDs and failures remain at integration boundaries where practical. | LOCKED | architecture | Fake adapters through VS1D. |
 | NFR-007 | Product remains operable by a solo founder; avoid premature microservices and enterprise complexity. | LOCKED | delivery | Current modular monolith. |
+| NFR-008 | Slice instrumentation must be proportional and must use stable Fairway IDs rather than PII/vendor IDs where possible. | LOCKED | data/privacy | Effective VS1F. |
+| NFR-009 | Domain events are transactional records; product analytics and technical observability may consume them later but must not replace domain truth. | LOCKED | data/architecture | Implemented VS1F through `domain_events`; see data contract docs. |
+| NFR-010 | Analytics/observability outage must not block guest, waiver, reservation, credit, or access transactions. | LOCKED | reliability | Effective VS1F. |
 
 ## 9. Product State And Lifecycle Definitions
 
@@ -316,7 +347,8 @@ Open questions / unresolved:
 - Started-session operator cancellation/refund treatment.
 - Facility turnover automation and inspection workflow detail.
 - Final staff roles, MFA policy, and role-management UX.
-- Waiver vendor and legal evidence model.
+- Waiver vendor and final legal evidence model.
+- Final guest waiver language, legal effectiveness, and minor/guardian policies.
 - Kisi commercial/API capabilities and fallback credential design.
 - Stripe product/pricing and webhook entitlement projection.
 - Simulator data rights and session ingestion capabilities.
@@ -331,6 +363,7 @@ Open questions / unresolved:
 | VS1C reservation lifecycle | FR-CRD-003, FR-RES-005, FR-RES-006, FR-RES-007, FR-ACC-003, BP-004, BP-006 | `pnpm verify:vs1c`, `tests/domains/reservations.test.ts` |
 | VS1D operator & facility controls | FR-MEM-005, FR-FAC-001 through FR-FAC-006, FR-RES-008, FR-CRD-004, BP-005, BP-009, FR-UX-002, FR-UX-003 | `pnpm verify:vs1d`, `tests/domains/facility.test.ts`, full regression stack. |
 | VS1E completion, turnover, cleaning, and readiness | FR-MEM-006, FR-FAC-007 through FR-FAC-012, FR-UX-005, BP-010, BP-011 | `pnpm verify:vs1e`, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1D runtime regressions. |
+| VS1F guest & waiver foundation | PP-DATA-001, PP-DATA-002, FR-GST-001 through FR-GST-010, FR-ACC-005, FR-UX-008, NFR-008 through NFR-010, BP-012 through BP-015 | Implemented. Verified by `pnpm verify:vs1f`, `tests/domains/guests.test.ts`, data contract docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1E regression verifiers. |
 
 Every future vertical slice must update this traceability table before completion.
 
@@ -346,8 +379,8 @@ Deferred through VS1E:
 - GHIN/WHS integration or official handicap vendor integration.
 - Uneekor-derived first-party performance profile implementation.
 - Resend/Twilio production notifications.
-- Waiver execution and guest waiver evidence.
-- Guest access workflows.
+- Real waiver execution and final legal guest waiver evidence.
+- Persistent unrestricted guest access workflows.
 - Waitlists and autonomous offers.
 - Competition engine, leagues, leaderboards, challenges, rankings, streaks, achievements.
 - Play the Tour Stop implementation or any implied PGA TOUR affiliation.

@@ -4,7 +4,7 @@ import { calculateAvailability } from "@/domains/reservations/availability";
 import { FakeSessionProvider } from "@/domains/sessions/fake-session-provider";
 import type { AuthPrincipal } from "@/domains/identity/types";
 import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
-import type { CancellationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationSummary, ReservationResult, SessionCompletionResult, StartSessionResult } from "@/application/member-flow/types";
+import type { CancellationResult, GuestMutationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationGuest, PersistentReservationSummary, ReservationResult, SessionCompletionResult, StartSessionResult, WaiverMutationResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
 
@@ -134,6 +134,79 @@ export class SupabaseMemberStore {
   }
 
 
+  async addReservationGuest(input: { memberProfileId: string; reservationId: string; guestName: string; guestEmail?: string; idempotencyKey: string }): Promise<GuestMutationResult> {
+    const { data, error } = await this.supabase.rpc("fairway_add_reservation_guest", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_id: input.reservationId,
+      p_guest_name: input.guestName,
+      p_guest_email: input.guestEmail ?? null,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    return mapGuestMutationResult(data as StoredGuestMutationResult);
+  }
+
+  async recordGuestAllowanceRejected(input: { memberProfileId: string; reservationId: string; idempotencyKey: string }): Promise<void> {
+    const { error } = await this.supabase.rpc("fairway_record_guest_allowance_rejection", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_id: input.reservationId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async requestGuestWaiver(input: { memberProfileId: string; reservationGuestId: string; idempotencyKey: string }): Promise<WaiverMutationResult> {
+    const { data, error } = await this.supabase.rpc("fairway_request_guest_waiver", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_guest_id: input.reservationGuestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    return mapWaiverMutationResult(data as StoredWaiverMutationResult);
+  }
+
+  async completeGuestWaiver(input: { memberProfileId: string; reservationGuestId: string; idempotencyKey: string }): Promise<WaiverMutationResult> {
+    const { data, error } = await this.supabase.rpc("fairway_complete_guest_waiver", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_guest_id: input.reservationGuestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    return mapWaiverMutationResult(data as StoredWaiverMutationResult);
+  }
+
+  async checkGuestAccessEligibility(input: { memberProfileId: string; reservationGuestId: string; idempotencyKey: string }): Promise<{ ready: boolean; accessEligible: boolean; blockedReason?: string }> {
+    const { data, error } = await this.supabase.rpc("fairway_check_guest_access_eligibility", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_guest_id: input.reservationGuestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    const payload = data as { ready: boolean; accessEligible: boolean; blockedReason?: string };
+    return { ready: Boolean(payload.ready), accessEligible: Boolean(payload.accessEligible), blockedReason: payload.blockedReason };
+  }
+
+  async removeReservationGuest(input: { memberProfileId: string; reservationGuestId: string; idempotencyKey: string }): Promise<GuestMutationResult> {
+    const { data, error } = await this.supabase.rpc("fairway_remove_reservation_guest", {
+      p_host_member_profile_id: input.memberProfileId,
+      p_reservation_guest_id: input.reservationGuestId,
+      p_idempotency_key: input.idempotencyKey,
+      p_now: this.clock.now().toISOString(),
+    });
+
+    if (error) throw new Error(error.message);
+    return mapGuestMutationResult(data as StoredGuestMutationResult);
+  }
+
   async completeSession(input: { memberProfileId: string; reservationId: string; idempotencyKey: string }): Promise<SessionCompletionResult> {
     const { data, error } = await this.supabase.rpc("fairway_complete_session", {
       p_member_profile_id: input.memberProfileId,
@@ -210,6 +283,65 @@ function mapReservationSummary(reservation: StoredReservationSummary): Persisten
     accessGrant: (reservation.access_grant ?? reservation.accessGrant) ? mapPersistentAccessGrant((reservation.access_grant ?? reservation.accessGrant) as StoredAccessGrant) : null,
     sessionStartedAt: toOptionalDate(reservation.session_started_at ?? reservation.sessionStartedAt),
     sessionEndedAt: toOptionalDate(reservation.session_ended_at ?? reservation.sessionEndedAt),
+    guests: ((reservation.guests ?? reservation.guests) ?? []).map(mapReservationGuest),
+  };
+}
+
+function mapReservationGuest(guest: StoredReservationGuest): PersistentReservationGuest {
+  return {
+    id: guest.id,
+    guestId: guest.guest_id ?? guest.guestId,
+    displayName: guest.display_name ?? guest.displayName,
+    status: guest.status,
+    waiverStatus: guest.waiver_status ?? guest.waiverStatus ?? "not_requested",
+    verificationState: guest.verification_state ?? guest.verificationState ?? "pending",
+    agreementVersion: guest.agreement_version ?? guest.agreementVersion ?? undefined,
+    ready: Boolean(guest.ready),
+    accessEligible: Boolean(guest.access_eligible ?? guest.accessEligible),
+    createdAt: new Date(guest.created_at ?? guest.createdAt),
+    removedAt: toOptionalDate(guest.removed_at ?? guest.removedAt),
+  };
+}
+
+function mapGuestMutationResult(payload: StoredGuestMutationResult): GuestMutationResult {
+  const reservationGuest = payload.reservationGuest ?? payload.reservation_guest;
+  if (!reservationGuest) throw new Error("RESERVATION_GUEST_PAYLOAD_MISSING");
+  const guest = payload.guest;
+  return {
+    reservationGuest: mapReservationGuest({
+      id: reservationGuest.id,
+      guestId: reservationGuest.guest_id ?? reservationGuest.guestId ?? "",
+      displayName: guest?.full_name ?? guest?.fullName ?? "Guest",
+      status: reservationGuest.status,
+      waiverStatus: "not_requested",
+      verificationState: "pending",
+      ready: Boolean(payload.ready),
+      accessEligible: Boolean(payload.accessEligible ?? payload.access_eligible),
+      createdAt: reservationGuest.created_at ?? reservationGuest.createdAt ?? new Date().toISOString(),
+      removedAt: reservationGuest.removed_at ?? reservationGuest.removedAt,
+    }),
+    idempotent: Boolean(payload.idempotent),
+  };
+}
+
+function mapWaiverMutationResult(payload: StoredWaiverMutationResult): WaiverMutationResult {
+  const reservationGuest = payload.reservationGuest ?? payload.reservation_guest;
+  const agreementVersion = payload.agreementVersion ?? payload.agreement_version;
+  if (!reservationGuest) throw new Error("RESERVATION_GUEST_PAYLOAD_MISSING");
+  if (!agreementVersion) throw new Error("AGREEMENT_VERSION_PAYLOAD_MISSING");
+  const acceptance = payload.acceptance;
+  return {
+    reservationGuest: { id: reservationGuest.id, guestId: reservationGuest.guest_id ?? reservationGuest.guestId ?? "" },
+    acceptance: {
+      id: acceptance.id,
+      status: acceptance.status,
+      verificationState: acceptance.verification_state ?? acceptance.verificationState ?? "pending",
+      evidenceReference: acceptance.evidence_reference ?? acceptance.evidenceReference ?? undefined,
+      completedAt: toOptionalDate(acceptance.completed_at ?? acceptance.completedAt),
+    },
+    agreementVersion: { id: agreementVersion.id, code: agreementVersion.code, version: agreementVersion.version, provider: agreementVersion.provider },
+    ready: Boolean(payload.ready),
+    accessEligible: Boolean(payload.accessEligible ?? payload.access_eligible),
   };
 }
 
@@ -309,6 +441,79 @@ interface StoredReservationSummary extends StoredReservation {
   sessionEndedAt?: string | null;
   can_complete_session?: boolean;
   canCompleteSession?: boolean;
+  guests?: StoredReservationGuest[];
+}
+
+interface StoredReservationGuest {
+  id: string;
+  guest_id?: string;
+  guestId: string;
+  display_name?: string;
+  displayName: string;
+  status: PersistentReservationGuest["status"];
+  waiver_status?: PersistentReservationGuest["waiverStatus"];
+  waiverStatus?: PersistentReservationGuest["waiverStatus"];
+  verification_state?: PersistentReservationGuest["verificationState"];
+  verificationState?: PersistentReservationGuest["verificationState"];
+  agreement_version?: string | null;
+  agreementVersion?: string | null;
+  ready: boolean;
+  access_eligible?: boolean;
+  accessEligible?: boolean;
+  created_at?: string;
+  createdAt: string;
+  removed_at?: string | null;
+  removedAt?: string | null;
+}
+
+interface StoredGuestMutationResult {
+  reservationGuest?: StoredReservationGuestRow;
+  reservation_guest?: StoredReservationGuestRow;
+  guest?: { id: string; full_name?: string; fullName?: string };
+  ready?: boolean;
+  accessEligible?: boolean;
+  access_eligible?: boolean;
+  idempotent?: boolean;
+}
+
+interface StoredWaiverMutationResult {
+  reservationGuest?: StoredReservationGuestRow;
+  reservation_guest?: StoredReservationGuestRow;
+  acceptance: StoredAgreementAcceptance;
+  agreementVersion?: StoredAgreementVersion;
+  agreement_version?: StoredAgreementVersion;
+  ready?: boolean;
+  accessEligible?: boolean;
+  access_eligible?: boolean;
+}
+
+interface StoredReservationGuestRow {
+  id: string;
+  guest_id?: string;
+  guestId?: string;
+  status: PersistentReservationGuest["status"];
+  created_at?: string;
+  createdAt?: string;
+  removed_at?: string | null;
+  removedAt?: string | null;
+}
+
+interface StoredAgreementAcceptance {
+  id: string;
+  status: string;
+  verification_state?: string;
+  verificationState?: string;
+  evidence_reference?: string | null;
+  evidenceReference?: string | null;
+  completed_at?: string | null;
+  completedAt?: string | null;
+}
+
+interface StoredAgreementVersion {
+  id: string;
+  code: string;
+  version: string;
+  provider: string;
 }
 
 interface StoredAccessGrant {

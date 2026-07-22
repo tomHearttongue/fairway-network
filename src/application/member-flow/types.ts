@@ -59,6 +59,21 @@ export interface PersistentReservationSummary extends PersistentReservation {
   accessGrant?: PersistentAccessGrant | null;
   sessionStartedAt?: Date;
   sessionEndedAt?: Date;
+  guests: PersistentReservationGuest[];
+}
+
+export interface PersistentReservationGuest {
+  id: string;
+  guestId: string;
+  displayName: string;
+  status: "active" | "removed";
+  waiverStatus: "not_requested" | "requested" | "completed" | "verified" | "revoked";
+  verificationState: "pending" | "verified" | "rejected";
+  agreementVersion?: string;
+  ready: boolean;
+  accessEligible: boolean;
+  createdAt: Date;
+  removedAt?: Date;
 }
 
 export interface PersistentAccessGrant {
@@ -71,6 +86,19 @@ export interface PersistentAccessGrant {
 
 export interface StartSessionResult {
   session: PracticeSession;
+}
+
+export interface GuestMutationResult {
+  reservationGuest: PersistentReservationGuest;
+  idempotent?: boolean;
+}
+
+export interface WaiverMutationResult {
+  reservationGuest: { id: string; guestId: string };
+  acceptance: { id: string; status: string; verificationState: string; evidenceReference?: string; completedAt?: Date };
+  agreementVersion: { id: string; code: string; version: string; provider: string };
+  ready: boolean;
+  accessEligible?: boolean;
 }
 
 export interface SessionCompletionResult {

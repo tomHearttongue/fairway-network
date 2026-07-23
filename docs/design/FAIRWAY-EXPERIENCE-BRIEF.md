@@ -125,16 +125,17 @@ Never invent guarantees. When the system cannot complete an action, tell the mem
 
 ## Demo Persona And Data Requirements
 
-Golden demo persona:
+Golden demo data is governed by DU1, the deterministic Demo Universe foundation.
 
-- Tom ï¿½ Demo Golfer.
+Canonical Golden Demo persona:
+
+- Tom, Demo Golfer.
 - Birdie-style membership context.
-- 24 available credits for the Product Acceptance demo state.
 - Handicap Index 8.4 from simulated official-golf demo source.
-- Driver, 7 Iron, and PW baselines from canonical demo data.
-- Representative activity/session history.
+- Driver, 7 Iron, and PW baselines derived from canonical DU1 shot facts.
+- Representative activity/session history derived from canonical DU1 reservation/session facts.
 
-Demo external-provider states must be visibly simulated/non-production and reproducible across refresh/login/server restart. Demo data must stay separate from production business assumptions.
+Demo external-provider states must be visibly simulated/non-production and reproducible across refresh/login/server restart. Demo data must stay separate from production business assumptions. DU1 is responsible for deterministic seed/version/clock/scenario behavior and for keeping visible summaries reconciled to underlying demo facts.
 
 ## UX Acceptance Standards
 

@@ -60,8 +60,11 @@ export class SupabaseMemberStore {
     });
 
     if (error) throw new Error(error.message);
-    const payload = data as { reservation: StoredReservation; idempotent: boolean };
-    const reservation = mapReservation(payload.reservation);
+    const payload = data as { reservation: StoredReservation; idempotent: boolean; price?: { creditCost?: number | string; creditUnits?: number | string } };
+    const reservation = {
+      ...mapReservation(payload.reservation),
+      creditsCommitted: toOptionalNumber(payload.price?.creditCost),
+    };
     const transientGrant = await this.accessProvider.createGrant({ reservation, location: input.location });
 
     const { data: storedAccessGrant, error: accessError } = await this.supabase.rpc("fairway_record_access_grant", {

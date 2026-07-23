@@ -47,6 +47,8 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | PP-UX-004 | Golf before administration: member-facing surfaces lead with golfer intent, not account-management or backend domain navigation. | LOCKED | product type/member | Effective VS1G. |
 | PP-UX-005 | Action before navigation: Play Now, Book, active session, and My Golf receive primary hierarchy over settings/admin. | LOCKED | product type/member | Effective VS1G. |
 | PP-UX-006 | Product acceptance is distinct from functional acceptance; automated checks do not replace human visual/product review. | LOCKED | product type | Effective VS1G. |
+| PP-DEMO-001 | Demo Universe data must feel lived-in, deterministic, inspectable, and golf-native without becoming parody data. | LOCKED | product type/demo | Effective DU1. Serious system, subtle golf personality. |
+| PP-DEMO-002 | Seed facts and derive summaries. Visible demo story and underlying canonical facts must not disagree. | LOCKED | product type/demo/data | Effective DU1. |
 
 ## 3. Personas / Actors
 
@@ -83,6 +85,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | AgreementAcceptance | Versioned evidence record for guest agreement/waiver completion, with provider/source, evidence reference, timestamp, and verification state. | LOCKED |
 | DomainEvent | Transaction-safe domain event record for future analytics/observability routing without coupling core logic to a vendor. | LOCKED |
 | AuditEvent | Attributable record of meaningful state changes, overrides, and sensitive actions. | LOCKED |
+| DemoUniverse | Versioned deterministic demo-world definition with canonical clock, seed, locations, people, members, memberships, credits, reservations, sessions, facility state, golf-performance facts, personas, and scenarios. | LOCKED |
 | Competition | Fairway-owned engagement engine for events, challenges, rankings, streaks, achievements, and future Golfer Passport visibility. | DEFERRED |
 
 ## 5. Functional Requirements By Domain
@@ -210,6 +213,8 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-017 | UX review bundles must be self-contained, secret-safe, and mark Product Acceptance as `PENDING HUMAN REVIEW` until Tom explicitly accepts the reviewed evidence. | LOCKED | product type/security | Implemented VS1G.1 via `pnpm ux:review:bundle` and product-acceptance docs. |
 | FR-UX-018 | Product Acceptance remediation must preserve simple golfer-facing UX while fixing review findings through state-driven actions, honest demo/provenance copy, viewport-first evidence, and production-like review runtime. | LOCKED | product type/member/facilities | Implemented VS1G.2 remediation round 1. |
 | FR-UX-019 | Play Now Product Acceptance flow must present server-derived duration/price before confirmation, then transform success state into assigned suite, access readiness, timing, and next meaningful session action. | LOCKED | product type/member/reservation | Implemented VS1G.3. Tests: pricing domain tests, Experience QA, and VS1G verifier. |
+| FR-UX-020 | Demo Universe must provide coherent deterministic personae and scenario presets from one canonical world rather than unrelated per-screenshot fixtures. | LOCKED | product type/demo | Implemented DU1 foundation in `src/demo-universe/universe.ts`; pending human review. |
+| FR-UX-021 | Demo population naming uses a layered strategy: majority believable identities, minority golf-flavored originals, rare hidden comedic names, and centrally replaceable recognizable golf-culture Easter eggs. | LOCKED | product type/demo | Implemented DU1 identity pools; see `docs/product/DEMO-UNIVERSE.md`. |
 
 ## 6. Business Policies And Rules
 
@@ -290,6 +295,7 @@ Unresolved commercial policies must not be implemented as permanent behavior wit
 | NFR-009 | Domain events are transactional records; product analytics and technical observability may consume them later but must not replace domain truth. | LOCKED | data/architecture | Implemented VS1F through `domain_events`; see data contract docs. |
 | NFR-010 | Analytics/observability outage must not block guest, waiver, reservation, credit, or access transactions. | LOCKED | reliability | Effective VS1F. |
 | NFR-011 | Member-facing UI targets WCAG 2.2 AA principles for contrast, semantic structure, focus, labels, target sizing, and state messaging. | LOCKED | accessibility | Effective VS1G; objective checks in `pnpm verify:vs1g`. |
+| NFR-012 | Demo reset/verify tooling must be deterministic, secret-safe, provenance-aware, and guarded against unsafe destructive execution. | LOCKED | demo/security/reliability | Implemented DU1 through `pnpm demo:verify` and guarded `pnpm demo:reset`. |
 
 ## 9. Product State And Lifecycle Definitions
 
@@ -361,6 +367,7 @@ Locked decisions:
 - Operator overrides must be governed and audited.
 - Cleaning Mode MVP is locked as suite/task-level, reservation-aware, restricted Facilities workflow.
 - Who Needs a Fourth, Arrival Zone display, official handicap identity, and first-party performance profile are locked MVP product directions; 1G implements only a demo My Golf presentation shell, not real integrations.
+- Deterministic Demo Universe foundation is locked as a demo/data capability, not a new user-facing domain. It may enrich accepted surfaces with coherent data but must not imply unsupported live integrations or reopen accepted VS1G behavior.
 
 Open questions / unresolved:
 
@@ -390,6 +397,7 @@ Open questions / unresolved:
 | VS1G.1 Experience QA harness & Product Acceptance infrastructure | PP-UX-006, FR-UX-015 through FR-UX-017, NFR-011 | Implemented. Verified by Playwright Experience QA (`pnpm ux:qa`), review bundle generation (`pnpm ux:review:bundle`), existing functional verifiers, and product-acceptance documentation. Subjective Product Acceptance remains pending human review. |
 | VS1G.2 Product Acceptance remediation round 1 | PP-UX-001 through PP-UX-006, FR-UX-011 through FR-UX-018, FR-FAC-007, FR-CMP-010 through FR-CMP-012, NFR-011 | Implemented. Verified by `pnpm ux:qa`, `pnpm ux:review:bundle`, functional verifiers, viewport screenshots, accessibility evidence, and production-like review runtime. Product Acceptance remains pending human review. |
 | VS1G.3 Reservation pricing authority & Product Acceptance remediation round 2 | FR-CRD-005, FR-RES-009, FR-UX-013, FR-UX-019, BP-016, BP-017, NFR-011 | Implemented. Verified by pricing/domain tests, Supabase migration `202607230001_reservation_pricing_authority.sql`, updated Experience QA, review bundle generation, and functional verifiers. Product Acceptance remains pending human review. |
+| DU1 deterministic Demo Universe foundation | PP-DEMO-001, PP-DEMO-002, FR-UX-020, FR-UX-021, NFR-012 | Implemented candidate. Verified by `pnpm demo:verify`, `tests/domains/demo-universe.test.ts`, and data contract docs. DU1 Product Acceptance remains pending human review. |
 
 Every future vertical slice must update this traceability table before completion.
 

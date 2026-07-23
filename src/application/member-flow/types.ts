@@ -68,6 +68,7 @@ export interface PersistentReservation {
   startAt: Date;
   endAt: Date;
   creditHoldEntryId: string;
+  creditsCommitted?: number;
   idempotencyKey: string;
   createdAt: Date;
   cancelledAt?: Date;

@@ -981,9 +981,8 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.member-context h1:focus {
-  outline: 3px solid rgba(31, 90, 69, .24);
-  outline-offset: 4px;
+.member-context h1[tabindex="-1"]:focus {
+  outline: none;
 }
 
 .guest-copy {
@@ -1157,4 +1156,14 @@ input:focus-visible {
     display: grid;
     grid-template-columns: 1fr;
   }
+}
+
+
+/* VS1G.5 focus refinement */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(31, 90, 69, .42);
+  outline-offset: 3px;
 }

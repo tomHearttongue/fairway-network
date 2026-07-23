@@ -6,7 +6,7 @@ import { captureScreen, expectMobilePlayStructure, expectResponsiveBasics, flush
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.4 Golden Demo experience", () => {
+test.describe("VS1G.5 Golden Demo experience", () => {
   test("member golden demo and facilities turnover restoration", async ({ browser }, testInfo) => {
     const memberContext = await browser.newContext();
     const page = await memberContext.newPage();
@@ -68,6 +68,7 @@ test.describe("VS1G.4 Golden Demo experience", () => {
       await page.getByRole("button", { name: /Start Session/i }).first().click();
       await page.getByText(/Session started/i).waitFor({ timeout: 45_000 });
       await page.getByText("Session active").last().waitFor();
+      await expect(page.locator(".ready-card").getByText("Session active")).toBeVisible();
       await expectMobilePlayStructure(page, "active session");
       await expect(page.getByRole("button", { name: /Finish Session/i })).toHaveCount(1);
       await runA11y(page, testInfo, "Active Session", active.key);
@@ -84,6 +85,7 @@ test.describe("VS1G.4 Golden Demo experience", () => {
 
       await page.getByRole("button", { name: "My Golf", exact: true }).click();
       await page.getByText("Golfer Passport").waitFor();
+      await expectProgrammaticHeadingFocusIsQuiet(page, "My Golf heading");
       await expect(page.getByText("Session started. Enjoy your Practice Suite.")).toHaveCount(0);
       await expect(page.getByText("Demo official handicap")).toBeVisible();
       await expect(page.getByText("Driver", { exact: true })).toBeVisible();
@@ -104,6 +106,11 @@ test.describe("VS1G.4 Golden Demo experience", () => {
       await page.getByRole("button", { name: /Finish Session/i }).first().click();
       await page.getByRole("status").filter({ hasText: /Nice work, Tom/i }).waitFor({ timeout: 45_000 });
       await expect(page.getByText("Your Fairway activity has been saved.")).toBeVisible();
+      await expect(page.getByText("Selected session")).toHaveCount(0);
+      await expect(page.getByText("Session active")).toHaveCount(0);
+      await expect(page.getByText("Access open")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Finish Session/i })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Start Session/i })).toHaveCount(0);
       await expectMobilePlayStructure(page, "session completion summary");
       await captureScreen(page, testInfo, {
         order: 6,
@@ -190,7 +197,7 @@ test.describe("VS1G.4 Golden Demo experience", () => {
 
 async function getLatestCompletedLifecycle(client: Awaited<ReturnType<typeof connectDb>>, email: string) {
   const result = await client.query(`
-    select r.id as reservation_id, r.status as reservation_status, r.suite_id, s.status as suite_status,
+    select r.id as reservation_id, r.status as reservation_status, r.suite_id, s.name as suite_name, s.status as suite_status,
       ag.status as access_status, ft.id as task_id, ft.status as task_status
     from reservations r
     join member_profiles mp on mp.id = r.member_profile_id
@@ -219,4 +226,30 @@ async function getSuiteStatus(client: Awaited<ReturnType<typeof connectDb>>, sui
   const result = await client.query("select status from suites where id = $1", [suiteId]);
   if (result.rowCount !== 1) throw new Error("Suite not found");
   return result.rows[0].status;
+}
+
+
+async function expectProgrammaticHeadingFocusIsQuiet(page: import("@playwright/test").Page, label: string): Promise<void> {
+  const focus = await page.evaluate(() => {
+    const heading = document.querySelector<HTMLElement>("#member-home-title");
+    if (!heading) return { found: false, focused: false, outlineStyle: "", outlineWidth: "" };
+    const style = window.getComputedStyle(heading);
+    return { found: true, focused: document.activeElement === heading, outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+  });
+  expect(focus.found, label + " should exist").toBe(true);
+  expect(focus.focused, label + " should receive programmatic focus").toBe(true);
+  expect(["none", "0"].includes(focus.outlineStyle) || focus.outlineWidth === "0px", label + " should not show persistent heading chrome").toBe(true);
+}
+
+async function expectInteractiveFocusIsVisible(page: import("@playwright/test").Page, label: string): Promise<void> {
+  await page.keyboard.press("Tab");
+  const focus = await page.evaluate(() => {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) return { tag: "", outlineStyle: "", outlineWidth: "", boxShadow: "" };
+    const style = window.getComputedStyle(active);
+    return { tag: active.tagName, outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth, boxShadow: style.boxShadow };
+  });
+  expect(focus.tag, label + " should move to an interactive control").toBe("BUTTON");
+  expect(focus.outlineStyle !== "none" || focus.outlineWidth !== "0px" || focus.boxShadow !== "none", label + " should remain visible for keyboard users").toBe(true);
+  await page.locator("#member-home-title").focus();
 }

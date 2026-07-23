@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const repoRoot = process.cwd();
 const pnpm = "C:\\Users\\TheMachine\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\bin\\pnpm.cmd";
@@ -8,7 +9,7 @@ const git = "C:\\Users\\TheMachine\\.cache\\codex-runtimes\\codex-primary-runtim
 const artifactRoot = path.join(repoRoot, "artifacts", "ux-review");
 const staging = path.join(artifactRoot, "bundle-staging");
 const zipPath = path.join(artifactRoot, "fairway-ux-review.zip");
-const slice = "VS1G.4 Product Acceptance Evidence Integrity, Mobile Experience Recovery, and Completion UX";
+const slice = "VS1G.5 Lifecycle Coherence, Guest Evidence Integrity, and Final Experience Refinement";
 
 assertCleanProductTree();
 const commitSha = gitText(["rev-parse", "HEAD"]);
@@ -34,7 +35,8 @@ const quality = qualityFiles.flatMap((file) => {
   const value = readJson(file, { consoleErrors: [], failedRequests: [] });
   return [{ file: path.relative(artifactRoot, file).replaceAll("\\", "/"), ...value }];
 });
-const summary = buildSummary(playwrightResults, screenshotManifest, accessibility, quality);
+const duplicateEvidence = validateDistinctScreenshotEvidence(screenshotManifest);
+const summary = buildSummary(playwrightResults, screenshotManifest, accessibility, quality, duplicateEvidence);
 const sourceSnapshot = copySourceSnapshot(commitSha);
 
 writeFileSync(path.join(staging, "00-README-FIRST.md"), reviewReadme({ commitSha, branch, timestamp, summary }));
@@ -62,6 +64,7 @@ writeJson(path.join(staging, "manifest.json"), {
 });
 writeJson(path.join(staging, "evidence", "test-summary.json"), summary);
 writeJson(path.join(staging, "evidence", "bundle-provenance.json"), { commitSha, branch, generatedAt: timestamp, sourceSnapshot });
+writeJson(path.join(staging, "evidence", "duplicate-screenshot-evidence.json"), duplicateEvidence);
 
 copyIfExists("docs/product/PRD.md", path.join(staging, "docs", "product", "PRD.md"));
 copyIfExists("docs/design/DESIGN-LANGUAGE-SYSTEM.md", path.join(staging, "docs", "design", "DESIGN-LANGUAGE-SYSTEM.md"));
@@ -103,7 +106,7 @@ function isIgnorableWorkingTreePath(file) {
   return normalized.startsWith("artifacts/") || normalized.startsWith(".next/") || normalized.startsWith("test-results/") || normalized.startsWith("playwright-report/") || normalized.startsWith("coverage/") || normalized.endsWith(".log");
 }
 
-function buildSummary(results, screenshots, a11y, qualityEntries) {
+function buildSummary(results, screenshots, a11y, qualityEntries, duplicateEvidence) {
   const tests = results?.stats ?? {};
   const violations = a11y.flatMap((entry) => entry.violations ?? []);
   const bySeverity = violations.reduce((acc, violation) => {
@@ -128,6 +131,7 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
     unexpectedNetworkFailureCount: unexpectedNetworkFailures,
     screenshotGenerationResult: screenshots.length > 0 ? "passed" : "no screenshots generated",
     screenshotCount: screenshots.length,
+    duplicateScreenshotEvidenceCount: duplicateEvidence.duplicates.length,
     totalTests: tests.expected ?? null,
     failedTests: tests.unexpected ?? null,
     skippedTests: tests.skipped ?? null,
@@ -135,7 +139,7 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
 }
 
 function reviewReadme({ commitSha, branch, timestamp, summary }) {
-  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: ${slice}\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate VS1G.4 Product Acceptance remediation, including exact artifact provenance, mobile Play recovery, member-centered completion UX, separated constrained scenarios, and reviewable server-authoritative pricing source.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Reviews server-derived Play Now duration and credit quote, then confirms Play Now.\n3. Sees assigned suite, credit impact, access readiness, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees a member-centered completion summary.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
+  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: ${slice}\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate VS1G.5 Product Acceptance remediation, including lifecycle-coherent completion rendering, active-session language, guest evidence integrity, heading-focus polish, and preserved artifact provenance.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Reviews server-derived Play Now duration and credit quote, then confirms Play Now.\n3. Sees assigned suite, credit impact, access readiness, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees a member-centered completion summary.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
 }
 
 function copySourceSnapshot(commit) {
@@ -181,6 +185,24 @@ function verifyGeneratedBundle(file, { commitSha: expectedSha }) {
   const verification = { manifestCommitSha: manifest.commitSha, sourceSnapshotCommitSha: manifest.sourceSnapshot?.commitSha, requiredArtifactsPresent: true, secretExclusion: "passed" };
   rmSync(verifyRoot, { recursive: true, force: true });
   return verification;
+}
+
+function validateDistinctScreenshotEvidence(screenshots) {
+  const hashes = new Map();
+  for (const entry of screenshots) {
+    const relative = String(entry.file ?? "").replace(/^screenshots\//, "");
+    const file = path.join(artifactRoot, "screenshots", relative);
+    if (!existsSync(file)) throw new Error("Screenshot evidence file is missing: " + entry.file);
+    const hash = createHash("sha256").update(readFileSync(file)).digest("hex");
+    const descriptor = { file: entry.file, screen: entry.screen, state: entry.state, persona: entry.persona, viewport: entry.viewport, hash };
+    if (!hashes.has(hash)) hashes.set(hash, []);
+    hashes.get(hash).push(descriptor);
+  }
+  const duplicates = Array.from(hashes.values())
+    .filter((items) => new Set(items.map((item) => `${item.screen}|${item.state}|${item.persona}|${item.viewport}`)).size > 1)
+    .map((items) => ({ hash: items[0].hash, entries: items }));
+  if (duplicates.length) throw new Error("Duplicate screenshot evidence detected for distinct review states: " + JSON.stringify(duplicates, null, 2));
+  return { checked: screenshots.length, duplicates };
 }
 
 function assertNoSecrets(root) {

@@ -20,4 +20,10 @@ describe("UX review bundle provenance safeguards", () => {
     expect(source).toContain("sourceSnapshotCommitSha");
     expect(source).toContain("assertNoSecrets(verifyRoot)");
   });
+
+  it("detects duplicate screenshot evidence for distinct review states", () => {
+    expect(source).toContain("validateDistinctScreenshotEvidence");
+    expect(source).toContain("Duplicate screenshot evidence detected for distinct review states");
+    expect(source).toContain("duplicateScreenshotEvidenceCount");
+  });
 });

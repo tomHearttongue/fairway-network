@@ -6,7 +6,7 @@ import { captureScreen, expectMobilePlayStructure, expectResponsiveBasics, flush
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.4 persona state gallery", () => {
+test.describe("VS1G.5 persona state gallery", () => {
   test("captures member experience states across coherent personae", async ({ browser }, testInfo) => {
     let context = await browser.newContext();
     let page = await context.newPage();
@@ -67,10 +67,14 @@ test.describe("VS1G.4 persona state gallery", () => {
       startQualityCapture(page);
 
       const guestHost = PERSONAS["guest-host-member"];
-      await bootstrapPersona(page, client, guestHost);
+      const guestHostProfile = await bootstrapPersona(page, client, guestHost);
+      await ensureTourPlanForProfile(client, guestHostProfile.memberProfileId);
+      await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await page.getByRole("button", { name: "Confirm Play Now" }).first().click();
       await page.getByText(/is ready|You are ready/i).first().waitFor({ timeout: 45_000 });
+      await page.locator(".guest-flow").scrollIntoViewIfNeeded();
+      await expect(page.getByText("No guests yet.")).toBeVisible();
       await expectMobilePlayStructure(page, "guest add empty state");
       await captureScreen(page, testInfo, {
         order: 13,
@@ -87,6 +91,8 @@ test.describe("VS1G.4 persona state gallery", () => {
       await page.getByRole("button", { name: /Add guest/i }).click();
       await page.getByText(/Send their waiver/i).waitFor({ timeout: 30_000 });
       await expect(page.getByRole("button", { name: /Send waiver/i }).first()).toBeVisible();
+      await page.locator(".guest-tile").scrollIntoViewIfNeeded();
+      await expect(page.locator(".guest-tile").getByText("Waiver required")).toBeVisible();
       await expectMobilePlayStructure(page, "guest waiver not requested");
       await captureScreen(page, testInfo, {
         order: 14,
@@ -101,6 +107,7 @@ test.describe("VS1G.4 persona state gallery", () => {
       await page.getByRole("button", { name: /Send waiver/i }).first().click();
       await page.getByText(/Waiver sent/i).waitFor({ timeout: 30_000 });
       await expect(page.getByText(/Waiting for waiver completion/i)).toBeVisible();
+      await page.locator(".guest-tile").scrollIntoViewIfNeeded();
       await expectMobilePlayStructure(page, "guest waiver pending");
       await captureScreen(page, testInfo, {
         order: 15,
@@ -120,6 +127,9 @@ test.describe("VS1G.4 persona state gallery", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await expect(page.locator(".guest-tile").getByText(/Ready when access opens|Ready now/i).first()).toBeVisible();
+      await page.locator(".guest-tile").evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await page.evaluate(() => window.scrollBy(0, 220));
+      await expect(page.locator(".guest-tile")).toBeInViewport();
       await expectMobilePlayStructure(page, "guest ready");
       await captureScreen(page, testInfo, {
         order: 16,
@@ -131,9 +141,20 @@ test.describe("VS1G.4 persona state gallery", () => {
         principles: ["human-state-language", "clear-system-status"],
         capability: "Guest readiness is visible after versioned waiver completion.",
       });
-      await expect(page.getByText("1/1 guest added. Remove a guest before adding another.")).toBeVisible();
+      await page.locator(".guest-flow").evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await page.getByLabel("Guest name").fill("Riley Guest");
+      await page.getByLabel("Guest email optional").fill("riley-ux@example.com");
+      await page.getByRole("button", { name: /Add guest/i }).click();
+      await page.locator(".guest-tile").getByText("Riley Guest", { exact: true }).waitFor({ timeout: 30_000 });
+      await page.getByLabel("Guest name").fill("Morgan Guest");
+      await page.getByLabel("Guest email optional").fill("morgan-ux@example.com");
+      await page.getByRole("button", { name: /Add guest/i }).click();
+      await expect(page.getByText("3/3 guest added. Remove a guest before adding another.")).toBeVisible({ timeout: 30_000 });
+      await page.locator(".guest-flow .member-warning").evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await expect(page.locator(".guest-flow .member-warning")).toBeInViewport();
+      await expectMobilePlayStructure(page, "guest allowance reached");
       await captureScreen(page, testInfo, {
-        order: 16,
+        order: 17,
         screen: "guest-limit-reached",
         route: "/",
         persona: guestHost.key,

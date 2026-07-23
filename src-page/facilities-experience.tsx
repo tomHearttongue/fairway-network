@@ -99,6 +99,7 @@ function FacilitiesControls() {
       setResult({ ok: false, message: friendlyFacilitiesError(body.error, `${taskActionLabel(action)} failed for ${task.suiteName}.`) });
       return;
     }
+    if (action === "complete") setSelectedSuiteId(task.suiteId);
     await refresh();
     setLoading(false);
     setResult({ ok: true, message: taskSuccessMessage(task, action) });
@@ -147,7 +148,7 @@ function FacilitiesControls() {
 
       <main className="facilities-grid">
         <section className="facility-next-card" aria-label="Next service task">
-          <div className="panel-heading"><h2>Next Best Action</h2><span>{state.location.timezone}</span></div>
+          <div className="panel-heading"><h2>Next Best Action</h2><span>{timezoneLabel(state.location.timezone)}</span></div>
           {topTask ? <TaskCard task={topTask} featured loading={loading} onAction={(action) => mutateTask(topTask, action)} /> : <div className="all-ready"><CheckCircle2 size={36} /><strong>All suites are ready</strong><span>No turnover or inspection tasks are open.</span></div>}
         </section>
 
@@ -232,4 +233,5 @@ function formatTaskStatus(status: FacilityTask["status"]): string {
 }
 function formatStatus(status: SuiteStatus): string { return titleCase(status.replaceAll("_", " ")); }
 function titleCase(value: string): string { return value.replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function timezoneLabel(timezone: string): string { if (timezone === "America/Chicago") return "Central Time"; return timezone.replaceAll("_", " "); }
 function formatTime(value: string | Date): string { return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(value)); }

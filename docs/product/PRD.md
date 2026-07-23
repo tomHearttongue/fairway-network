@@ -106,6 +106,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-CRD-002 | Reservation credit operations must be idempotent, auditable, concurrency-safe, and reconstructable. | LOCKED | reservation/member | Implemented for create/cancel in VS1B/1C. |
 | FR-CRD-003 | Valid cancellation preserves hold/commit history and uses compensating entries to restore credits exactly once. | LOCKED | reservation | Implemented VS1C. Tests and `pnpm verify:vs1c`. |
 | FR-CRD-004 | Operator cancellation credit compensation follows the current development policy only until commercial cancellation economics are decided. | PROVISIONAL | reservation/location | Implemented VS1D. |
+| FR-CRD-005 | Fairway credit granularity is 0.5 credit; authoritative accounting uses deterministic half-credit units rather than binary floating-point balances. | LOCKED | network/credits | Implemented VS1G.3. Tests: `tests/domains/pricing.test.ts` and reservation pricing authority tests. |
 
 ### Reservations
 
@@ -119,6 +120,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-RES-006 | Repeated or concurrent cancellation must produce one effective cancellation/refund. | LOCKED | reservation | Implemented VS1C. |
 | FR-RES-007 | Reservation status transitions must be centralized and not arbitrary mutations. | LOCKED | reservation | Implemented VS1C in domain and DB functions. |
 | FR-RES-008 | Operator cancellation/override must require authorization, actor identity, reason, audit, and compensating actions. | LOCKED | location/reservation | Implemented VS1D. |
+| FR-RES-009 | Reservation pricing is server-authoritative. The client may express intent, but the server determines demand band, credit price, eligibility, duration, inventory, and suite assignment before holding/committing credits. | LOCKED | reservation/location/membership plan | Implemented VS1G.3 through Supabase RPC pricing and Play Now quote/confirmation revalidation. |
 
 ### Guests / Waivers
 
@@ -207,6 +209,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-016 | Product review evidence must use coherent Fairway personae rather than generic logged-in users. | LOCKED | product type/member/operator | Implemented VS1G.1 for demo-active-birdie, new-golfer, power-tour-member, guest-host-member, constrained-member, and facilities-user. |
 | FR-UX-017 | UX review bundles must be self-contained, secret-safe, and mark Product Acceptance as `PENDING HUMAN REVIEW` until Tom explicitly accepts the reviewed evidence. | LOCKED | product type/security | Implemented VS1G.1 via `pnpm ux:review:bundle` and product-acceptance docs. |
 | FR-UX-018 | Product Acceptance remediation must preserve simple golfer-facing UX while fixing review findings through state-driven actions, honest demo/provenance copy, viewport-first evidence, and production-like review runtime. | LOCKED | product type/member/facilities | Implemented VS1G.2 remediation round 1. |
+| FR-UX-019 | Play Now Product Acceptance flow must present server-derived duration/price before confirmation, then transform success state into assigned suite, access readiness, timing, and next meaningful session action. | LOCKED | product type/member/reservation | Implemented VS1G.3. Tests: pricing domain tests, Experience QA, and VS1G verifier. |
 
 ## 6. Business Policies And Rules
 
@@ -227,6 +230,8 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | BP-013 | Paid extra-guest economics are not defined and must not be invented. | UNRESOLVED | membership plan/billing | Out of scope. |
 | BP-014 | Guest may accompany host under controlled session-scoped access; persistent guest credentials are out of scope unless later technically required. | LOCKED | guest/access | Implemented VS1F without persistent guest credentials. |
 | BP-015 | Final guest waiver language, minor policy, guardian authorization, and legal effectiveness require expert review. | UNRESOLVED | legal/jurisdiction | EXPERT REVIEW. |
+| BP-016 | Current demand-band rates are Off-Peak 4 credits/hour, Standard 6 credits/hour, and Prime 8 credits/hour; booking increments remain 15 minutes, producing exact 0.5-credit pricing where applicable. | LOCKED | location/reservation | Implemented VS1G.3. |
+| BP-017 | Exact production demand-band schedules are location-configurable. Location #1 development/demo seed uses deterministic windows to demonstrate server-authoritative pricing; final commercial schedules remain configurable by location. | CONFIGURABLE | location | Implemented as `location_demand_band_windows`. |
 
 ## 7. Configuration And Policy Scope
 
@@ -384,6 +389,7 @@ Open questions / unresolved:
 | VS1G Fairway experience foundation & Golden Demo | PP-UX-001 through PP-UX-006, PP-DATA-001, FR-UX-009 through FR-UX-014, FR-CMP-010 through FR-CMP-012, NFR-008 through NFR-011 | Implemented. Verified by `pnpm verify:vs1g`, DLS/experience/data docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1F regression verifiers. Subjective product acceptance remains Tom review. |
 | VS1G.1 Experience QA harness & Product Acceptance infrastructure | PP-UX-006, FR-UX-015 through FR-UX-017, NFR-011 | Implemented. Verified by Playwright Experience QA (`pnpm ux:qa`), review bundle generation (`pnpm ux:review:bundle`), existing functional verifiers, and product-acceptance documentation. Subjective Product Acceptance remains pending human review. |
 | VS1G.2 Product Acceptance remediation round 1 | PP-UX-001 through PP-UX-006, FR-UX-011 through FR-UX-018, FR-FAC-007, FR-CMP-010 through FR-CMP-012, NFR-011 | Implemented. Verified by `pnpm ux:qa`, `pnpm ux:review:bundle`, functional verifiers, viewport screenshots, accessibility evidence, and production-like review runtime. Product Acceptance remains pending human review. |
+| VS1G.3 Reservation pricing authority & Product Acceptance remediation round 2 | FR-CRD-005, FR-RES-009, FR-UX-013, FR-UX-019, BP-016, BP-017, NFR-011 | Implemented. Verified by pricing/domain tests, Supabase migration `202607230001_reservation_pricing_authority.sql`, updated Experience QA, review bundle generation, and functional verifiers. Product Acceptance remains pending human review. |
 
 Every future vertical slice must update this traceability table before completion.
 
@@ -419,3 +425,4 @@ Every vertical slice must:
 4. Update PRD status and implementation/test traceability when complete.
 5. Preserve configuration scope correctly.
 6. Treat member-facing and operator-facing UX acceptance separately from mere functional correctness.
+

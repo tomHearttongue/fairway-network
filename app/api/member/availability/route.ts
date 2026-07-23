@@ -25,6 +25,7 @@ export async function GET() {
         availableCredits: state.availableCredits,
       },
       availability: state.availability,
+      playNowQuote: state.playNowQuote,
       reservations: state.memberReservations,
       auditEvents: state.auditEvents,
       demoGolfProfile: demoGolfProfileForEmail(state.person.email),

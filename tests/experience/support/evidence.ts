@@ -107,6 +107,20 @@ export async function expectResponsiveBasics(page: Page, label: string): Promise
     );
     const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("main button, nav button"));
     const inputs = Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea"));
+    const keyElements = Array.from(document.querySelectorAll<HTMLElement>("main h1, main h2, .member-nav, .play-now-card, .session-state-card, .primary-action.large, .flow-panel, .facilities-shell h1, .next-action-card"));
+    const clippedSamples = keyElements
+      .filter((element) => isVisible(element))
+      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.width > 0 && (rect.left < -2 || rect.right > window.innerWidth + 2))
+      .slice(0, 5)
+      .map(({ element, rect }) => `${element.tagName.toLowerCase()}${element.className ? `.${String(element.className).replace(/\s+/g, ".")}` : ""} left=${Math.round(rect.left)} right=${Math.round(rect.right)}`);
+    const primarySelectors = ["main h1", ".member-nav", ".play-now-card", ".next-action-card"];
+    const offscreenPrimarySamples = primarySelectors
+      .flatMap((selector) => Array.from(document.querySelectorAll<HTMLElement>(selector)).slice(0, 1))
+      .filter((element) => isVisible(element))
+      .map((element) => ({ element, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.bottom < 0 || rect.top > window.innerHeight)
+      .map(({ element, rect }) => `${element.tagName.toLowerCase()}${element.className ? `.${String(element.className).replace(/\s+/g, ".")}` : ""} top=${Math.round(rect.top)} bottom=${Math.round(rect.bottom)}`);
     return {
       overflow: document.documentElement.scrollWidth - window.innerWidth,
       unlabeledButtons: buttons.filter((button) => isVisible(button) && !isThirdPartyAuthControl(button) && !hasAccessibleName(button)).length,
@@ -115,11 +129,15 @@ export async function expectResponsiveBasics(page: Page, label: string): Promise
         .slice(0, 5)
         .map((button) => button.outerHTML.replace(/\s+/g, " ").slice(0, 250)),
       unlabeledInputs: inputs.filter((input) => isVisible(input) && !(input.labels?.length || input.getAttribute("aria-label") || input.getAttribute("placeholder"))).length,
+      clippedSamples,
+      offscreenPrimarySamples,
     };
   });
   expect(basics.overflow, `${label} should not horizontally overflow`).toBeLessThanOrEqual(2);
   expect(basics.unlabeledButtons, `${label} should not have unlabeled Fairway-owned buttons: ${JSON.stringify(basics.unlabeledButtonSamples)}`).toBe(0);
   expect(basics.unlabeledInputs, `${label} should not have unlabeled form controls`).toBe(0);
+  expect(basics.clippedSamples, `${label} should keep key elements within horizontal viewport bounds`).toEqual([]);
+  expect(basics.offscreenPrimarySamples, `${label} should keep primary elements in view after navigation`).toEqual([]);
 }
 
 export function writeReviewNote(name: string, value: unknown): void {

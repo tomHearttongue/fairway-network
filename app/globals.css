@@ -943,3 +943,129 @@ input:focus-visible {
     font-size: 30px;
   }
 }
+
+/* VS1G.3 Product Acceptance remediation */
+.duration-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.duration-options button {
+  min-height: 64px;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  border: 1px solid var(--fw-line);
+  background: #fffdf8;
+  color: var(--fw-green);
+}
+
+.duration-options button.selected,
+.duration-options button[aria-pressed="true"] {
+  background: var(--fw-green);
+  color: #fffdf7;
+  border-color: var(--fw-green);
+}
+
+.duration-options span {
+  font-size: 12px;
+  font-weight: 850;
+  color: inherit;
+}
+
+.ready-card h2,
+.play-now-card h2,
+.member-context h1 {
+  overflow-wrap: anywhere;
+}
+
+.member-context h1:focus {
+  outline: 3px solid rgba(31, 90, 69, .24);
+  outline-offset: 4px;
+}
+
+.guest-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+@media (max-width: 540px) {
+  .home-layout,
+  .play-layout,
+  .golf-layout {
+    gap: 12px;
+  }
+  .duration-options {
+    grid-template-columns: 1fr;
+  }
+  .play-now-card,
+  .session-card,
+  .insight-card,
+  .attention-card,
+  .flow-panel,
+  .passport-hero,
+  .performance-panel,
+  .activity-panel {
+    padding: 15px;
+  }
+  .member-main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* VS1G.3 responsive containment */
+.fairway-member,
+.member-main,
+.home-layout,
+.play-layout,
+.golf-layout,
+.play-now-card,
+.session-card,
+.insight-card,
+.attention-card,
+.flow-panel,
+.passport-hero,
+.performance-panel,
+.activity-panel,
+.reservation-tile,
+.guest-tile,
+.suite-chip,
+.duration-options button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.flow-panel summary,
+.section-heading,
+.reservation-meta,
+.guest-actions,
+.action-stack,
+.action-stack.horizontal {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.flow-panel summary span,
+.section-heading span,
+.reservation-tile button,
+.guest-copy,
+.suite-chip strong,
+.suite-chip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 540px) {
+  .member-nav {
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+  }
+  .reservation-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

@@ -14,10 +14,35 @@ export interface PersistentMemberState {
   location: LocationConfig;
   suites: PracticeSuite[];
   availability: AvailabilitySlot[];
+  playNowQuote?: PlayNowQuote;
   memberReservations: PersistentReservationSummary[];
   auditEvents: AuditEvent[];
 }
 
+
+export interface PlayNowQuote {
+  available: boolean;
+  blockedReason?: string;
+  suiteId?: string;
+  suiteName?: string;
+  availableUntil?: Date;
+  maxDurationMinutes?: number;
+  durationMinutes?: number;
+  demandBand?: "OFF_PEAK" | "STANDARD" | "PRIME";
+  creditUnits?: number;
+  creditCost?: number;
+  memberAvailableCredits: number;
+  sufficientCredits?: boolean;
+  options: PlayNowQuoteOption[];
+}
+
+export interface PlayNowQuoteOption {
+  durationMinutes: number;
+  demandBand: "OFF_PEAK" | "STANDARD" | "PRIME";
+  creditUnits: number;
+  creditCost: number;
+  sufficientCredits: boolean;
+}
 export interface ReservationResult {
   reservation: PersistentReservation;
   accessGrant: AccessGrant;
@@ -108,3 +133,6 @@ export interface SessionCompletionResult {
   facilityTask?: { id: string; suiteId: string; taskType: "turnover" | "inspection"; status: "open" | "claimed" | "in_progress" | "completed" | "cancelled"; dueAt?: Date } | null;
   idempotent: boolean;
 }
+
+
+

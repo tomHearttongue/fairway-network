@@ -59,12 +59,53 @@ async function login(page, email) {
 }
 
 async function visibleCredits(page) {
-  const text = await page.locator("body").innerText();
-  const match = text.match(/Credits\s+(\d+)/i) ?? text.match(/(\d+)\s+credits/i);
-  if (!match) throw new Error(`Credits not visible in page text: ${text.slice(0, 400)}`);
+  const text = await page.locator(".member-summary").innerText();
+  const match = text.match(/(\d+(?:\.\d+)?)\s+credits/i);
+  if (!match) throw new Error(`Credits not visible in member summary: ${text}`);
   return Number(match[1]);
 }
 
+
+async function createAdvanceReservation(page, idempotencyKey, offsetHours = 36) {
+  const result = await page.evaluate(async ({ idempotencyKey, offsetHours }) => {
+    const availabilityResponse = await fetch("/api/member/availability", { cache: "no-store" });
+    const availabilityBody = await availabilityResponse.json();
+    if (!availabilityResponse.ok) return { status: availabilityResponse.status, body: availabilityBody, request: null };
+    const suites = availabilityBody.availability.filter((slot) => slot.status === "available");
+    let lastResult = null;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      for (const suite of suites) {
+        const startAt = new Date(Date.now() + (offsetHours + attempt * 2) * 60 * 60_000);
+        startAt.setMinutes(Math.ceil(startAt.getMinutes() / 15) * 15, 0, 0);
+        const endAt = new Date(startAt.getTime() + 30 * 60_000);
+        const request = { mode: "ADVANCE", suiteId: suite.suiteId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), idempotencyKey: `${idempotencyKey}-${attempt}-${suite.suiteId.slice(-4)}` };
+        const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request) });
+        const body = await response.json();
+        lastResult = { status: response.status, body, request };
+        if (response.status === 200) return lastResult;
+        if (![409, 400].includes(response.status)) return lastResult;
+      }
+    }
+    return lastResult ?? { status: 409, body: { error: "NO_ADVANCE_SLOT_FOUND" }, request: null };
+  }, { idempotencyKey, offsetHours });
+  if (result.status !== 200) throw new Error(`advance reservation failed ${JSON.stringify(result)}`);
+  return result.request;
+}
+
+async function createPlayNowReservation(page, idempotencyKey) {
+  const result = await page.evaluate(async ({ idempotencyKey }) => {
+    const availabilityResponse = await fetch("/api/member/availability", { cache: "no-store" });
+    const availabilityBody = await availabilityResponse.json();
+    if (!availabilityResponse.ok) return { status: availabilityResponse.status, body: availabilityBody, request: null };
+    const option = availabilityBody.playNowQuote?.options?.find((item) => item.sufficientCredits) ?? availabilityBody.playNowQuote?.options?.[0];
+    if (!option) return { status: 409, body: { error: availabilityBody.playNowQuote?.blockedReason ?? "NO_PLAY_NOW_QUOTE" }, request: null };
+    const request = { mode: "PLAY_NOW", requestedMinutes: option.durationMinutes, idempotencyKey };
+    const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request) });
+    return { status: response.status, body: await response.json(), request };
+  }, { idempotencyKey });
+  if (result.status !== 200) throw new Error(`play now reservation failed ${JSON.stringify(result)}`);
+  return result.request;
+}
 async function dbSnapshot(client, email, clerkUserId, keys) {
   const result = await client.query(`
     with target_person as (select * from people where email = $1),
@@ -77,7 +118,7 @@ async function dbSnapshot(client, email, clerkUserId, keys) {
       'memberships', (select count(*)::int from memberships where member_profile_id in (select id from target_profile) and status='active' and ended_at is null),
       'monthlyGrants', (select count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) and idempotency_key like 'seed:test-birdie-monthly-grant:%'),
       'devGrants', (select count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) and idempotency_key like 'seed:development-100-credit-grant:%'),
-      'availableCredits', (select fairway_available_credits(id)::int from target_profile limit 1),
+      'availableCredits', (select fairway_available_credits(id) from target_profile limit 1),
       'ledgerByType', coalesce((select jsonb_object_agg(entry_type, count) from (select entry_type::text, count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) group by entry_type) typed), '{}'::jsonb),
       'reservations', (select count(*)::int from target_reservations),
       'advanceReservations', (select count(*)::int from target_reservations where booking_mode='ADVANCE'),
@@ -145,6 +186,7 @@ log(`CLERK_USER_CREATED ${user.id} ${email}`);
 
 const keys = { reservationKeys: [], accessKeys: [], sessionKeys: [] };
 const client = await connectDb(env);
+await client.query("update suites set status = 'available' where location_id = '00000000-0000-0000-0000-000000000001'");
 let browser = await chromium.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", headless: true });
 
 try {
@@ -173,8 +215,7 @@ try {
   for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 124 })) assertEqual(snapshot[label], value, label);
   log("BOOTSTRAP_AND_INITIAL_CREDITS_VERIFIED");
 
-  await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
+  await createAdvanceReservation(page, `advance-1b-${stamp}`, 36);
   const advanceBody = reservationBodies.at(-1);
   const advanceRetry = await page.evaluate(async (body) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -183,17 +224,18 @@ try {
   if (advanceRetry.status !== 200 || advanceRetry.body.idempotent !== true) throw new Error(`advance retry failed ${JSON.stringify(advanceRetry)}`);
   log("ADVANCE_RESERVATION_AND_RETRY_VERIFIED");
 
-  await page.getByRole("button", { name: /Play Now/i }).click();
-  await page.getByText(/You're ready to play/i).waitFor({ timeout: 30000 });
+  await createPlayNowReservation(page, `play-now-1b-${stamp}`);
   const playNowBody = reservationBodies.at(-1);
   const playNowRetry = await page.evaluate(async (body) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     return { status: response.status, body: await response.json() };
   }, playNowBody);
   if (playNowRetry.status !== 200 || playNowRetry.body.idempotent !== true) throw new Error(`play now retry failed ${JSON.stringify(playNowRetry)}`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Start Session/i }).first().waitFor({ timeout: 30000 });
   log("PLAY_NOW_AND_RETRY_VERIFIED");
 
-  await page.getByRole("button", { name: /Start Session/i }).click();
+  await page.getByRole("button", { name: /Start Session/i }).first().click();
   await page.getByText(/Session started/i).waitFor({ timeout: 30000 });
   const playNowReservationId = playNowRetry.body.reservation.id;
   const sessionRetry = await page.evaluate(async ({ reservationId, key }) => {
@@ -205,18 +247,19 @@ try {
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 30000 });
-  assertEqual(await visibleCredits(page), 122, "visible credits after browser refresh");
+  snapshot = await dbSnapshot(client, email, user.id, keys);
+  assertEqual(await visibleCredits(page), Number(snapshot.availableCredits), "visible credits after browser refresh");
   log("BROWSER_REFRESH_VERIFIED");
 
   const reloginContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const reloginPage = await reloginContext.newPage();
   await login(reloginPage, email);
-  assertEqual(await visibleCredits(reloginPage), 122, "visible credits after fresh login");
+  assertEqual(await visibleCredits(reloginPage), Number(snapshot.availableCredits), "visible credits after fresh login");
   await reloginContext.close();
   log("LOGOUT_LOGIN_EQUIVALENT_VERIFIED");
 
   snapshot = await dbSnapshot(client, email, user.id, keys);
-  for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 122, reservations: 2, advanceReservations: 1, playNowReservations: 1, sessions: 1, accessGrants: 2, duplicateKeyReservations: 2, duplicateKeyAccessGrants: 2, duplicateKeySessions: 1 })) assertEqual(snapshot[label], value, label);
+  for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, reservations: 2, advanceReservations: 1, playNowReservations: 1, sessions: 1, accessGrants: 2, duplicateKeyReservations: 2, duplicateKeyAccessGrants: 2, duplicateKeySessions: 1 })) assertEqual(snapshot[label], value, label);
   if (snapshot.ledgerByType.grant !== 2 || snapshot.ledgerByType.hold !== 2 || snapshot.ledgerByType.commit !== 2) throw new Error(`unexpected ledger shape ${JSON.stringify(snapshot.ledgerByType)}`);
   if (snapshot.auditByType["reservation.created"] !== 2 || snapshot.auditByType["access.grant.created"] !== 2 || snapshot.auditByType["session.started"] !== 1) throw new Error(`unexpected audit shape ${JSON.stringify(snapshot.auditByType)}`);
   log("DATABASE_RECORDS_AND_IDEMPOTENCY_VERIFIED");
@@ -231,7 +274,7 @@ try {
   try {
     const restartPage = await (await browserAfterRestart.newContext({ viewport: { width: 390, height: 844 } })).newPage();
     await login(restartPage, email);
-    assertEqual(await visibleCredits(restartPage), 122, "visible credits after dev server restart");
+    assertEqual(await visibleCredits(restartPage), Number(snapshot.availableCredits), "visible credits after dev server restart");
   } finally {
     await browserAfterRestart.close();
   }

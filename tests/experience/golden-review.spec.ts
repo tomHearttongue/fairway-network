@@ -6,7 +6,7 @@ import { captureScreen, expectResponsiveBasics, flushQualityCapture, runA11y, st
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.2 Golden Demo experience", () => {
+test.describe("VS1G.3 Golden Demo experience", () => {
   test("member golden demo and facilities turnover restoration", async ({ browser }, testInfo) => {
     const memberContext = await browser.newContext();
     const page = await memberContext.newPage();
@@ -20,7 +20,7 @@ test.describe("VS1G.2 Golden Demo experience", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByRole("heading", { name: /Ready to play/ }).waitFor();
       await expect(page.getByText("24 credits")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Play Now" }).first()).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Confirm Play Now" }).first()).toBeEnabled();
       await expectResponsiveBasics(page, "member home");
       await runA11y(page, testInfo, "Member Home", active.key);
       await captureScreen(page, testInfo, {
@@ -49,8 +49,8 @@ test.describe("VS1G.2 Golden Demo experience", () => {
         capability: "Member can understand duration, credit prerequisites, suite availability, and turnover protection.",
       });
 
-      await page.getByRole("button", { name: "Play Now" }).first().click();
-      await page.getByText(/ready to play/i).waitFor({ timeout: 45_000 });
+      await page.getByRole("button", { name: "Confirm Play Now" }).first().click();
+      await page.getByText(/is ready|You are ready/i).first().waitFor({ timeout: 45_000 });
       await captureScreen(page, testInfo, {
         order: 3,
         screen: "play-now-confirmation",
@@ -62,9 +62,9 @@ test.describe("VS1G.2 Golden Demo experience", () => {
         capability: "Reservation, suite assignment, credit commit, and access timing is visible after Play Now.",
       });
 
-      await page.getByRole("button", { name: "Start session" }).click();
+      await page.getByRole("button", { name: /Start Session/i }).first().click();
       await page.getByText(/Session started/i).waitFor({ timeout: 45_000 });
-      await page.getByText("Session active").first().waitFor();
+      await page.getByText("Session active").last().waitFor();
       await runA11y(page, testInfo, "Active Session", active.key);
       await captureScreen(page, testInfo, {
         order: 4,
@@ -95,7 +95,7 @@ test.describe("VS1G.2 Golden Demo experience", () => {
       });
 
       await page.getByRole("button", { name: "Play", exact: true }).click();
-      await page.getByRole("button", { name: "Finish session" }).click();
+      await page.getByRole("button", { name: /Finish Session/i }).first().click();
       await page.getByRole("status").filter({ hasText: /Session complete/i }).waitFor({ timeout: 45_000 });
       await captureScreen(page, testInfo, {
         order: 6,

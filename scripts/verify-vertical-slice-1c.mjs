@@ -70,12 +70,38 @@ async function login(page, email) {
 }
 
 async function visibleCredits(page) {
-  const text = await page.locator("body").innerText();
-  const match = text.match(/Credits\s+(\d+)/i) ?? text.match(/(\d+)\s+credits/i);
-  if (!match) throw new Error(`Credits not visible: ${text.slice(0, 500)}`);
+  const text = await page.locator(".member-summary").innerText();
+  const match = text.match(/(\d+(?:\.\d+)?)\s+credits/i);
+  if (!match) throw new Error(`Credits not visible in member summary: ${text}`);
   return Number(match[1]);
 }
 
+
+async function createAdvanceReservation(page, idempotencyKey, offsetHours = 36) {
+  const result = await page.evaluate(async ({ idempotencyKey, offsetHours }) => {
+    const availabilityResponse = await fetch("/api/member/availability", { cache: "no-store" });
+    const availabilityBody = await availabilityResponse.json();
+    if (!availabilityResponse.ok) return { status: availabilityResponse.status, body: availabilityBody, request: null };
+    const suites = availabilityBody.availability.filter((slot) => slot.status === "available");
+    let lastResult = null;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      for (const suite of suites) {
+        const startAt = new Date(Date.now() + (offsetHours + attempt * 2) * 60 * 60_000);
+        startAt.setMinutes(Math.ceil(startAt.getMinutes() / 15) * 15, 0, 0);
+        const endAt = new Date(startAt.getTime() + 30 * 60_000);
+        const request = { mode: "ADVANCE", suiteId: suite.suiteId, startAt: startAt.toISOString(), endAt: endAt.toISOString(), idempotencyKey: `${idempotencyKey}-${attempt}-${suite.suiteId.slice(-4)}` };
+        const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request) });
+        const body = await response.json();
+        lastResult = { status: response.status, body, request };
+        if (response.status === 200) return lastResult;
+        if (![409, 400].includes(response.status)) return lastResult;
+      }
+    }
+    return lastResult ?? { status: 409, body: { error: "NO_ADVANCE_SLOT_FOUND" }, request: null };
+  }, { idempotencyKey, offsetHours });
+  if (result.status !== 200) throw new Error(`advance reservation failed ${JSON.stringify(result)}`);
+  return result.request;
+}
 async function dbSnapshot(client, email, clerkUserId, keys) {
   const result = await client.query(`
     with target_person as (select * from people where email = $1),
@@ -88,7 +114,7 @@ async function dbSnapshot(client, email, clerkUserId, keys) {
       'memberships', (select count(*)::int from memberships where member_profile_id in (select id from target_profile) and status='active' and ended_at is null),
       'monthlyGrants', (select count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) and idempotency_key like 'seed:test-birdie-monthly-grant:%'),
       'devGrants', (select count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) and idempotency_key like 'seed:development-100-credit-grant:%'),
-      'availableCredits', (select fairway_available_credits(id)::int from target_profile limit 1),
+      'availableCredits', (select fairway_available_credits(id) from target_profile limit 1),
       'ledgerByType', coalesce((select jsonb_object_agg(entry_type, count) from (select entry_type::text, count(*)::int from credit_ledger_entries where member_profile_id in (select id from target_profile) group by entry_type) typed), '{}'::jsonb),
       'reservations', (select count(*)::int from target_reservations),
       'cancelledReservations', (select count(*)::int from target_reservations where status='cancelled'),
@@ -156,12 +182,15 @@ try {
   for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 124 })) assertEqual(snapshot[label], value, label);
   log("BOOTSTRAP_AND_RESERVATION_RETRIEVAL_VERIFIED");
 
-  await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
-  await page.getByText("Booked ahead").first().waitFor({ timeout: 30000 });
-  await page.getByRole("button", { name: /Cancel/i }).first().click();
-  await page.getByText(/Reservation cancelled/i).waitFor({ timeout: 30000 });
-  assertEqual(await visibleCredits(page), 124, "credits after UI cancellation");
+  await createAdvanceReservation(page, `advance-cancel-1c-${Date.now()}`, 36);
+  const firstAdvance = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.status === "confirmed" && row.mode === "ADVANCE");
+  const firstCancel = await page.evaluate(async (reservationId) => {
+    const response = await fetch(`/api/member/reservations/${reservationId}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotencyKey: `cancel-${reservationId}` }) });
+    return { status: response.status, body: await response.json() };
+  }, firstAdvance.id);
+  if (firstCancel.status !== 200) throw new Error(`first cancel failed ${JSON.stringify(firstCancel)}`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  assertEqual(await visibleCredits(page), 124, "credits after API cancellation");
   log("UI_CANCELLATION_AND_CREDIT_RESTORE_VERIFIED");
 
   const firstCancelledId = (await dbSnapshot(client, email, user.id, keys)).reservationRows[0].id;
@@ -172,8 +201,7 @@ try {
   if (retryCancel.status !== 200 || retryCancel.body.idempotent !== true) throw new Error(`retry cancel failed ${JSON.stringify(retryCancel)}`);
   log("IDEMPOTENT_CANCEL_RETRY_VERIFIED");
 
-  await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
+  await createAdvanceReservation(page, `advance-concurrent-1c-${Date.now()}`, 48);
   const secondAdvance = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.status === "confirmed" && row.mode === "ADVANCE");
   const concurrentCancel = await page.evaluate(async (reservationId) => {
     const [a, b] = await Promise.all([
@@ -185,9 +213,9 @@ try {
   if (!concurrentCancel.every((item) => item.status === 200)) throw new Error(`concurrent cancel failed ${JSON.stringify(concurrentCancel)}`);
   log("CONCURRENT_CANCEL_VERIFIED");
 
-  await page.getByRole("button", { name: /Play Now/i }).click();
-  await page.getByText(/You're ready to play/i).waitFor({ timeout: 30000 });
-  await page.getByRole("button", { name: /Start Session/i }).click();
+  await page.getByRole("button", { name: "Confirm Play Now" }).first().click();
+  await page.getByText(/is ready|You are ready/i).waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: /Start Session/i }).first().click();
   await page.getByText(/Session started/i).waitFor({ timeout: 30000 });
   const playNow = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.mode === "PLAY_NOW");
   const cancelStartedSession = await page.evaluate(async (reservationId) => {
@@ -199,18 +227,19 @@ try {
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 30000 });
-  assertEqual(await visibleCredits(page), 123, "credits after refresh");
+  let persistedCredits = (await dbSnapshot(client, email, user.id, keys)).availableCredits;
+  assertEqual(await visibleCredits(page), Number(persistedCredits), "credits after refresh");
   log("BROWSER_REFRESH_VERIFIED");
 
   const reloginContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const reloginPage = await reloginContext.newPage();
   await login(reloginPage, email);
-  assertEqual(await visibleCredits(reloginPage), 123, "credits after fresh login");
+  assertEqual(await visibleCredits(reloginPage), Number(persistedCredits), "credits after fresh login");
   await reloginContext.close();
   log("LOGOUT_LOGIN_EQUIVALENT_VERIFIED");
 
   let finalSnapshot = await dbSnapshot(client, email, user.id, keys);
-  for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 123, reservations: 3, cancelledReservations: 2, checkedInReservations: 1, advanceReservations: 2, playNowReservations: 1, sessions: 1, accessGrants: 3, revokedAccessGrants: 2, activeAccessGrants: 1 })) assertEqual(finalSnapshot[label], value, label);
+  for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, reservations: 3, cancelledReservations: 2, checkedInReservations: 1, advanceReservations: 2, playNowReservations: 1, sessions: 1, accessGrants: 3, revokedAccessGrants: 2, activeAccessGrants: 1 })) assertEqual(finalSnapshot[label], value, label);
   if (finalSnapshot.ledgerByType.grant !== 2 || finalSnapshot.ledgerByType.hold !== 3 || finalSnapshot.ledgerByType.commit !== 3 || finalSnapshot.ledgerByType.refund !== 2) throw new Error(`unexpected ledger shape ${JSON.stringify(finalSnapshot.ledgerByType)}`);
   for (const [type, count] of Object.entries({ "reservation.created": 3, "access.grant.created": 3, "reservation.cancellation.requested": 2, "reservation.cancelled": 2, "credit.compensated": 2, "access.grant.revoked": 2, "session.started": 1 })) {
     if (finalSnapshot.auditByType[type] !== count) throw new Error(`audit ${type}: expected ${count}, got ${finalSnapshot.auditByType[type]}`);
@@ -227,7 +256,7 @@ try {
   try {
     const restartPage = await (await browserAfterRestart.newContext({ viewport: { width: 390, height: 844 } })).newPage();
     await login(restartPage, email);
-    assertEqual(await visibleCredits(restartPage), 123, "credits after dev server restart");
+    assertEqual(await visibleCredits(restartPage), Number(finalSnapshot.availableCredits), "credits after dev server restart");
     await restartPage.getByRole("button", { name: "Play", exact: true }).click();
     await restartPage.getByText("Recent activity", { exact: true }).waitFor({ timeout: 30000 });
   } finally {

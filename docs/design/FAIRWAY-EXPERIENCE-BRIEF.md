@@ -65,21 +65,20 @@ Play Now receives dominant visual hierarchy. Administrative details are supporti
 Play Now should feel faster than booking:
 
 - Immediate availability summary.
-- Clear duration and credit cost.
+- Server-derived duration options in 15-minute increments.
+- Clear demand-band credit cost before confirmation.
+- Confirmation that revalidates availability, pricing, eligibility, and credits server-side.
 - Clear assigned suite after confirmation.
 - Clear access window state.
-- Recoverable failure language when unavailable.
+- Recoverable failure language when availability or pricing changes.
 
-Server-side reservation, credit, suite assignment, and concurrency rules remain authoritative.
+Server-side reservation, credit, suite assignment, and concurrency rules remain authoritative. The browser expresses member intent; it does not choose demand band, entitlement, inventory, maximum duration, or authoritative credit price.
 
 ## Booking Expectations
 
-Booking should preserve the existing simple advance flow for 1G:
+Advance booking is intentionally secondary in VS1G.3 Product Acceptance evidence. Do not present an automatic "book next slot" shortcut as a finished future-booking capability.
 
-- Present future booking as a secondary action.
-- Explain credit impact.
-- Show upcoming reservation details in human language.
-- Do not add complex calendar UX until product need justifies it.
+A future bounded advance-booking slice should add honest date/time, duration, server-derived price, availability, and confirmation behavior before future booking returns to primary member/demo hierarchy. Do not add complex calendar UX until product need justifies it.
 
 ## Session Experience
 
@@ -128,7 +127,7 @@ Never invent guarantees. When the system cannot complete an action, tell the mem
 
 Golden demo persona:
 
-- Tom � Demo Golfer.
+- Tom ï¿½ Demo Golfer.
 - Birdie-style membership context.
 - 24 available credits for the Product Acceptance demo state.
 - Handicap Index 8.4 from simulated official-golf demo source.

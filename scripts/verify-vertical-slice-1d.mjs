@@ -150,7 +150,7 @@ try {
   const operatorProfile = await memberProfileForEmail(client, operatorEmail);
   await client.query("select fairway_grant_development_operator($1, $2, $3)", [operatorProfile.id, operatorProfile.home_location_id, "Vertical Slice 1D runtime verification operator grant"]);
   await operatorPage.goto("http://localhost:3000/operator", { waitUntil: "domcontentloaded" });
-  await operatorPage.getByRole("heading", { name: "Fairway Network Location #1" }).waitFor({ timeout: 45000 });
+  await operatorPage.getByRole("heading", { name: "Fairway KC" }).waitFor({ timeout: 45000 });
   const facility = await operatorPage.evaluate(async () => ({ status: (await fetch("/api/operator/facility")).status, body: await (await fetch("/api/operator/facility")).json() }));
   assertEqual(facility.status, 200, "operator facility status");
   assertEqual(facility.body.suites.length, 12, "operator facility suite count");
@@ -227,7 +227,7 @@ try {
   }, restoredAdvance.body.reservation.id);
   assertEqual(operatorCancel.status, 200, "operator cancellation status");
   assertEqual(operatorCancel.body.reservation.status, "cancelled", "operator cancellation reservation status");
-  assertEqual(operatorCancel.body.refundedCredits, 1, "operator refunded credits");
+  assertEqual(operatorCancel.body.refundedCredits, Number(restoredAdvance.body.reservation.creditsCommitted ?? 2), "operator refunded credits");
   const retryCancel = await operatorPage.evaluate(async (reservationId) => {
     const response = await fetch(`/api/operator/reservations/${reservationId}/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "Runtime verification operator cancellation", idempotencyKey: `operator-cancel-${reservationId}` }) });
     return { status: response.status, body: await response.json() };
@@ -247,13 +247,13 @@ try {
   await setSuiteStatusApi(operatorPage, suite2.id, "available", "Runtime verification restore administrative hold");
   await setSuiteStatusApi(operatorPage, suite3.id, "available", "Runtime verification restore concurrent suite");
   await operatorPage.reload({ waitUntil: "domcontentloaded" });
-  await operatorPage.getByRole("heading", { name: "Fairway Network Location #1" }).waitFor({ timeout: 30000 });
+  await operatorPage.getByRole("heading", { name: "Fairway KC" }).waitFor({ timeout: 30000 });
   log("CONCURRENT_OPERATOR_MUTATIONS_AND_NO_STALE_UI_VERIFIED");
 
   const finalMemberSnapshot = await snapshot(client, memberEmail);
   assertEqual(finalMemberSnapshot.people, 1, "member people");
   assertEqual(finalMemberSnapshot.profiles, 1, "member profiles");
-  assertEqual(finalMemberSnapshot.availableCredits, 123, "member final credits");
+  assertEqual(finalMemberSnapshot.availableCredits, 124 - Number(playNow.body.reservation.creditsCommitted ?? 2), "member final credits");
   assert(finalMemberSnapshot.ledgerByType.refund === 1, `expected one refund ${JSON.stringify(finalMemberSnapshot.ledgerByType)}`);
   assert(finalMemberSnapshot.reservations.some((row) => row.status === "cancelled"), "cancelled reservation missing");
   assert(finalMemberSnapshot.accessGrants.some((row) => row.status === "revoked"), "revoked access grant missing");

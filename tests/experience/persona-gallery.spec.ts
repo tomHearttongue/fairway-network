@@ -69,29 +69,46 @@ test.describe("VS1G.2 persona state gallery", () => {
       const guestHost = PERSONAS["guest-host-member"];
       await bootstrapPersona(page, client, guestHost);
       await page.getByRole("button", { name: "Play", exact: true }).click();
-      await page.getByRole("button", { name: /Book/i }).first().click();
-      await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 45_000 });
+      await page.getByRole("button", { name: "Confirm Play Now" }).first().click();
+      await page.getByText(/is ready|You are ready/i).first().waitFor({ timeout: 45_000 });
       await page.getByLabel("Guest name").fill("Casey Guest");
       await page.getByLabel("Guest email optional").fill("casey-ux@example.com");
       await page.getByRole("button", { name: /Add guest/i }).click();
-      await page.getByText(/waiver needs/i).waitFor({ timeout: 30_000 });
-      await expect(page.getByRole("button", { name: /Request waiver/i }).first()).toBeVisible();
+      await page.getByText(/Send their waiver/i).waitFor({ timeout: 30_000 });
+      await expect(page.getByRole("button", { name: /Send waiver/i }).first()).toBeVisible();
       await captureScreen(page, testInfo, {
         order: 13,
+        screen: "guest-waiver-not-requested",
+        route: "/",
+        persona: guestHost.key,
+        state: "guest-added-waiver-not-requested",
+        prdRequirementIds: ["FR-GST-001", "FR-GST-006", "FR-UX-013"],
+        principles: ["human-state-language", "clear-system-status"],
+        capability: "Guest workflow distinguishes added, waiver required, and readiness status.",
+      });
+      await page.getByRole("button", { name: /Send waiver/i }).first().click();
+      await page.getByText(/Waiver sent/i).waitFor({ timeout: 30_000 });
+      await expect(page.getByText(/Waiting for waiver completion/i)).toBeVisible();
+      await captureScreen(page, testInfo, {
+        order: 14,
         screen: "guest-waiver-pending",
         route: "/",
         persona: guestHost.key,
-        state: "guest-added-waiver-pending",
-        prdRequirementIds: ["FR-GST-001", "FR-GST-006", "FR-UX-013"],
+        state: "guest-waiver-pending",
+        prdRequirementIds: ["FR-GST-006", "FR-ACC-005"],
         principles: ["human-state-language", "clear-system-status"],
-        capability: "Guest workflow distinguishes added, waiver pending, and readiness status.",
+        capability: "Pending guest waiver state is visible without fake adapter controls.",
       });
-      await page.getByRole("button", { name: /Request waiver/i }).first().click();
-      await page.getByText(/Waiver request recorded/i).waitFor({ timeout: 30_000 });
-      await page.getByRole("button", { name: /Mark complete/i }).first().click();
-      await page.getByText(/Waiver complete/i).waitFor({ timeout: 30_000 });
+      const guestRecord = await latestGuestAssociation(client, guestHost.email, "Casey Guest");
+      await page.evaluate(async ({ reservationId, reservationGuestId }) => {
+        const response = await fetch(`/api/member/reservations/${reservationId}/guests/${reservationGuestId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "complete_waiver", idempotencyKey: `ux-complete-waiver-${reservationGuestId}` }) });
+        if (!response.ok) throw new Error(`complete waiver failed ${response.status}`);
+      }, guestRecord);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.getByRole("button", { name: "Play", exact: true }).click();
+      await expect(page.locator(".guest-tile").getByText(/Ready when access opens|Ready now/i).first()).toBeVisible();
       await captureScreen(page, testInfo, {
-        order: 14,
+        order: 15,
         screen: "guest-ready",
         route: "/",
         persona: guestHost.key,
@@ -100,11 +117,9 @@ test.describe("VS1G.2 persona state gallery", () => {
         principles: ["human-state-language", "clear-system-status"],
         capability: "Guest readiness is visible after versioned waiver completion.",
       });
-      await page.getByLabel("Guest name").fill("Second Guest");
-      await page.getByRole("button", { name: /Add guest/i }).click({ trial: true }).catch(() => undefined);
-      await expect(page.getByText("Guest limit reached for this membership.")).toBeVisible();
+      await expect(page.getByText("1/1 guest added. Remove a guest before adding another.")).toBeVisible();
       await captureScreen(page, testInfo, {
-        order: 15,
+        order: 16,
         screen: "guest-limit-reached",
         route: "/",
         persona: guestHost.key,
@@ -126,11 +141,11 @@ test.describe("VS1G.2 persona state gallery", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await expect(page.getByText("0 credits")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Reserve the next safe slot" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Play Now" }).first()).toBeDisabled();
+      await expect(page.getByText("No suite ready right now")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Confirm Play Now" }).first()).toBeDisabled();
       await runA11y(page, testInfo, "Constrained Play", constrained.key);
       await captureScreen(page, testInfo, {
-        order: 16,
+        order: 17,
         screen: "constrained-play-blocked",
         route: "/",
         persona: constrained.key,
@@ -147,3 +162,18 @@ test.describe("VS1G.2 persona state gallery", () => {
     }
   });
 });
+
+async function latestGuestAssociation(client: Awaited<ReturnType<typeof connectDb>>, hostEmail: string, guestName: string): Promise<{ reservationId: string; reservationGuestId: string }> {
+  const result = await client.query(`
+    select rg.id as reservation_guest_id, rg.reservation_id
+    from reservation_guests rg
+    join member_profiles mp on mp.id = rg.host_member_profile_id
+    join people pe on pe.id = mp.person_id
+    join guests g on g.id = rg.guest_id
+    where pe.email = $1 and g.full_name = $2
+    order by rg.created_at desc
+    limit 1
+  `, [hostEmail, guestName]);
+  if (result.rowCount !== 1) throw new Error(`expected one guest association for ${hostEmail} / ${guestName}`);
+  return { reservationId: result.rows[0].reservation_id, reservationGuestId: result.rows[0].reservation_guest_id };
+}

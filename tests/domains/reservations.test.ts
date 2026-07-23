@@ -35,7 +35,6 @@ async function createFutureReservation(harness = createHarness()) {
     suiteId: harness.suites[0].id,
     startAt: addMinutes(harness.now, 60),
     endAt: addMinutes(harness.now, 90),
-    creditCost: 1,
     idempotencyKey: "future-reservation",
   });
   return { ...harness, reservation };
@@ -66,7 +65,36 @@ describe("ReservationService", () => {
     const reservations: Reservation[] = [0, 1].map((index) => ({ id: `res_${index}`, locationId: locationOneConfig.id, suiteId: suites[index].id, memberProfileId, bookingMode: "ADVANCE", status: "confirmed", startAt: addMinutes(now, 60 + index * 60), endAt: addMinutes(now, 90 + index * 60), creditHoldEntryId: `hold_${index}`, idempotencyKey: `existing-${index}`, createdAt: now }));
     const { service } = createHarness({ suites, reservations, now });
 
-    await expect(service.createAdvanceReservation({ memberProfileId, suiteId: suites[2].id, startAt: addMinutes(now, 240), endAt: addMinutes(now, 270), creditCost: 1, idempotencyKey: "limit-test" })).rejects.toThrow("ACTIVE_RESERVATION_LIMIT_REACHED");
+    await expect(service.createAdvanceReservation({ memberProfileId, suiteId: suites[2].id, startAt: addMinutes(now, 240), endAt: addMinutes(now, 270), idempotencyKey: "limit-test" })).rejects.toThrow("ACTIVE_RESERVATION_LIMIT_REACHED");
+  });
+
+
+  it("uses server-derived demand-band pricing even if a caller includes an understated credit cost", async () => {
+    const now = new Date("2026-07-20T17:00:00.000Z");
+    const harness = createHarness({ now });
+
+    await harness.service.createAdvanceReservation({
+      memberProfileId,
+      suiteId: harness.suites[0].id,
+      startAt: addMinutes(now, 60),
+      endAt: addMinutes(now, 105),
+      idempotencyKey: "authoritative-price",
+      creditCost: 0,
+    } as any);
+
+    expect(harness.ledger.availableBalance(memberProfileId)).toBe(95.5);
+    const commit = harness.ledger.all().find((entry) => entry.type === "commit");
+    expect(commit?.amount).toBe(4.5);
+  });
+
+  it("rejects stale Play Now confirmations when the requested duration no longer fits", async () => {
+    const now = new Date("2026-07-20T22:15:00.000Z");
+    const suites = createSeedSuites(locationOneConfig).slice(0, 1);
+    const reservations: Reservation[] = [{ id: "res_next", locationId: locationOneConfig.id, suiteId: suites[0].id, memberProfileId: "mp_other", bookingMode: "ADVANCE", status: "confirmed", startAt: addMinutes(now, 60), endAt: addMinutes(now, 90), creditHoldEntryId: "hold_other", idempotencyKey: "existing-next", createdAt: now }];
+    const harness = createHarness({ suites, reservations, now });
+
+    await expect(harness.service.createPlayNowReservation({ memberProfileId, requestedMinutes: 60, idempotencyKey: "stale-play-now-duration" })).rejects.toThrow("PLAY_NOW_DURATION_UNAVAILABLE");
+    expect(harness.ledger.availableBalance(memberProfileId)).toBe(100);
   });
 
   it("allows exactly one concurrent Play Now claim for the final suite", async () => {
@@ -75,8 +103,8 @@ describe("ReservationService", () => {
     const { service } = createHarness({ suites, now });
 
     const attempts = await Promise.allSettled([
-      service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, creditCost: 1, idempotencyKey: "claim-a" }),
-      service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, creditCost: 1, idempotencyKey: "claim-b" }),
+      service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, idempotencyKey: "claim-a" }),
+      service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, idempotencyKey: "claim-b" }),
     ]);
 
     expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(1);
@@ -96,12 +124,12 @@ describe("ReservationService", () => {
 
   it("cancels a future reservation and restores credits exactly once", async () => {
     const harness = await createFutureReservation();
-    expect(harness.ledger.availableBalance(memberProfileId)).toBe(99);
+    expect(harness.ledger.availableBalance(memberProfileId)).toBe(96);
 
     const result = await harness.service.cancelReservation({ memberProfileId, reservationId: harness.reservation.id, idempotencyKey: "cancel-once" });
 
     expect(result.reservation.status).toBe("cancelled");
-    expect(result.refundedCredits).toBe(1);
+    expect(result.refundedCredits).toBe(4);
     expect(harness.ledger.availableBalance(memberProfileId)).toBe(100);
     expect(harness.ledger.all().map((entry) => entry.type)).toEqual(["grant", "hold", "commit", "refund"]);
   });
@@ -120,7 +148,7 @@ describe("ReservationService", () => {
   it("does not corrupt the ledger when cancellation persistence fails", async () => {
     const seedRepository = new InMemoryReservationRepository();
     const seeded = createHarness({ repository: seedRepository });
-    const reservation = await seeded.service.createAdvanceReservation({ memberProfileId, suiteId: seeded.suites[0].id, startAt: addMinutes(seeded.now, 60), endAt: addMinutes(seeded.now, 90), creditCost: 1, idempotencyKey: "seed-before-failure" });
+    const reservation = await seeded.service.createAdvanceReservation({ memberProfileId, suiteId: seeded.suites[0].id, startAt: addMinutes(seeded.now, 60), endAt: addMinutes(seeded.now, 90), idempotencyKey: "seed-before-failure" });
     const failingRepository = new FailingCancellationRepository(await seedRepository.listReservations(locationOneConfig.id));
     const harness = createHarness({ repository: failingRepository, now: seeded.now });
     harness.ledger.hold({ memberProfileId, amount: 1, idempotencyKey: "seed-before-failure:credit-hold", reason: "seed", createdAt: seeded.now });
@@ -160,6 +188,11 @@ describe("ReservationService", () => {
     const harness = await createFutureReservation();
 
     await expect(harness.service.cancelReservation({ memberProfileId, reservationId: harness.reservation.id, idempotencyKey: "cancel-after-session", hasStartedSession: true })).rejects.toThrow("SESSION_ALREADY_STARTED");
-    expect(harness.ledger.availableBalance(memberProfileId)).toBe(99);
+    expect(harness.ledger.availableBalance(memberProfileId)).toBe(96);
   });
 });
+
+
+
+
+

@@ -50,7 +50,6 @@ describe("member reservation and credit integration", () => {
       suiteId: suites[0].id,
       startAt: addMinutes(now, 60),
       endAt: addMinutes(now, 90),
-      creditCost: 1,
       idempotencyKey: "repeatable-reservation",
     };
 
@@ -58,7 +57,7 @@ describe("member reservation and credit integration", () => {
     const second = await service.createAdvanceReservation(input);
 
     expect(second.id).toBe(first.id);
-    expect(ledger.availableBalance(memberProfileId)).toBe(99);
+    expect(ledger.availableBalance(memberProfileId)).toBe(96);
     expect(ledger.all().filter((entry) => entry.type === "commit")).toHaveLength(1);
   });
 
@@ -84,7 +83,6 @@ describe("member reservation and credit integration", () => {
       suiteId: suites[0].id,
       startAt: addMinutes(now, 60),
       endAt: addMinutes(now, 90),
-      creditCost: 1,
       idempotencyKey: "conflicting-reservation",
     })).rejects.toThrow("RESERVATION_CONFLICT");
 
@@ -100,7 +98,6 @@ describe("member reservation and credit integration", () => {
       suiteId: suites[0].id,
       startAt: addMinutes(now, 60),
       endAt: addMinutes(now, 90),
-      creditCost: 1,
       idempotencyKey: "write-failure-reservation",
     })).rejects.toThrow("RESERVATION_WRITE_FAILED");
 
@@ -108,3 +105,6 @@ describe("member reservation and credit integration", () => {
     expect(ledger.all().map((entry) => entry.type)).toEqual(["grant", "hold", "release"]);
   });
 });
+
+
+

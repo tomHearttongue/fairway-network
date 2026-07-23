@@ -4,6 +4,7 @@ import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
 import type { MembershipPlanSeed } from "@/domains/membership/test-birdie";
 import { addMinutes, calculateAvailability, overlaps } from "@/domains/reservations/availability";
 import { assertMemberCancellationAllowed } from "@/domains/reservations/lifecycle";
+import { priceReservation } from "@/domains/reservations/pricing";
 import type { BookingMode, Reservation, ReservationRepository } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
 
@@ -39,8 +40,9 @@ export class ReservationService {
     const requestedMinutes = input.requestedMinutes ?? candidate.maxPlayNowMinutes;
     const durationMinutes = Math.min(requestedMinutes, candidate.maxPlayNowMinutes);
     if (durationMinutes < this.dependencies.location.minimumSessionMinutes) throw new Error("PLAY_NOW_TOO_SHORT");
+    if (requestedMinutes > candidate.maxPlayNowMinutes) throw new Error("PLAY_NOW_DURATION_UNAVAILABLE");
 
-    return this.createReservation({ memberProfileId: input.memberProfileId, suiteId: candidate.suiteId, bookingMode: "PLAY_NOW", startAt: now, endAt: addMinutes(now, durationMinutes), creditCost: input.creditCost, idempotencyKey: input.idempotencyKey });
+    return this.createReservation({ memberProfileId: input.memberProfileId, suiteId: candidate.suiteId, bookingMode: "PLAY_NOW", startAt: now, endAt: addMinutes(now, durationMinutes), idempotencyKey: input.idempotencyKey });
   }
 
   async cancelReservation(input: CancelReservationInput): Promise<CancelReservationOutput> {
@@ -95,14 +97,17 @@ export class ReservationService {
 
     if (existingReservations.some((reservation) => reservation.suiteId === input.suiteId && reservation.status === "confirmed" && overlaps(input.startAt, input.endAt, reservation.startAt, reservation.endAt))) throw new Error("RESERVATION_CONFLICT");
 
-    const hold = this.dependencies.ledger.hold({ memberProfileId: input.memberProfileId, amount: input.creditCost, idempotencyKey: `${input.idempotencyKey}:credit-hold`, reason: `${input.bookingMode} reservation credit hold`, createdAt: now });
+    const durationMinutes = Math.round((input.endAt.getTime() - input.startAt.getTime()) / 60_000);
+    const reservationPrice = priceReservation({ location: this.dependencies.location, startAt: input.startAt, durationMinutes });
+    const creditCost = reservationPrice.creditCost;
+    const hold = this.dependencies.ledger.hold({ memberProfileId: input.memberProfileId, amount: creditCost, idempotencyKey: `${input.idempotencyKey}:credit-hold`, reason: `${input.bookingMode} reservation credit hold`, createdAt: now });
 
     try {
       const reservation = await this.dependencies.repository.createReservationAtomically({ locationId: this.dependencies.location.id, suiteId: input.suiteId, memberProfileId: input.memberProfileId, bookingMode: input.bookingMode, startAt: input.startAt, endAt: input.endAt, creditHoldEntryId: hold.id, createdAt: now, idempotencyKey: input.idempotencyKey });
-      this.dependencies.ledger.commit({ memberProfileId: input.memberProfileId, amount: input.creditCost, relatedEntryId: hold.id, idempotencyKey: `${input.idempotencyKey}:credit-commit`, reason: `${input.bookingMode} reservation credit commit`, createdAt: now });
+      this.dependencies.ledger.commit({ memberProfileId: input.memberProfileId, amount: creditCost, relatedEntryId: hold.id, idempotencyKey: `${input.idempotencyKey}:credit-commit`, reason: `${input.bookingMode} reservation credit commit`, createdAt: now });
       return reservation;
     } catch (error) {
-      this.dependencies.ledger.release({ memberProfileId: input.memberProfileId, amount: input.creditCost, relatedEntryId: hold.id, idempotencyKey: `${input.idempotencyKey}:credit-release`, reason: `${input.bookingMode} reservation conflict release`, createdAt: now });
+      this.dependencies.ledger.release({ memberProfileId: input.memberProfileId, amount: creditCost, relatedEntryId: hold.id, idempotencyKey: `${input.idempotencyKey}:credit-release`, reason: `${input.bookingMode} reservation conflict release`, createdAt: now });
       throw error;
     }
   }
@@ -113,14 +118,12 @@ export interface CreateReservationInput {
   suiteId: string;
   startAt: Date;
   endAt: Date;
-  creditCost: number;
   idempotencyKey: string;
 }
 
 export interface CreatePlayNowInput {
   memberProfileId: string;
   requestedMinutes?: number;
-  creditCost: number;
   idempotencyKey: string;
 }
 
@@ -142,3 +145,7 @@ export interface MemberReservationLists {
   upcoming: Reservation[];
   history: Reservation[];
 }
+
+
+
+

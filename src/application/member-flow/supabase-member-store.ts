@@ -4,7 +4,7 @@ import { calculateAvailability } from "@/domains/reservations/availability";
 import { FakeSessionProvider } from "@/domains/sessions/fake-session-provider";
 import type { AuthPrincipal } from "@/domains/identity/types";
 import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
-import type { CancellationResult, GuestMutationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationGuest, PersistentReservationSummary, ReservationResult, SessionCompletionResult, StartSessionResult, WaiverMutationResult } from "@/application/member-flow/types";
+import type { CancellationResult, GuestMutationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationGuest, PersistentReservationSummary, PlayNowQuote, ReservationResult, SessionCompletionResult, StartSessionResult, WaiverMutationResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
 
@@ -18,7 +18,7 @@ export class SupabaseMemberStore {
     const { data, error } = await this.supabase.rpc("fairway_bootstrap_clerk_member", {
       p_clerk_user_id: principal.externalId,
       p_email: principal.email,
-      p_display_name: principal.email,
+      p_display_name: principal.displayName ?? principal.email,
     });
 
     if (error) throw new Error(error.message);
@@ -39,6 +39,7 @@ export class SupabaseMemberStore {
       location,
       suites,
       availability: calculateAvailability({ location, suites, reservations, at: this.clock.now() }),
+      playNowQuote: state.playNowQuote ? mapPlayNowQuote(state.playNowQuote) : undefined,
       memberReservations: (state.memberReservations ?? []).map(mapReservationSummary),
       auditEvents: state.auditEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) })),
     };
@@ -53,7 +54,7 @@ export class SupabaseMemberStore {
       p_start_at: input.startAt?.toISOString() ?? null,
       p_end_at: input.endAt?.toISOString() ?? null,
       p_requested_minutes: input.requestedMinutes ?? null,
-      p_credit_cost: input.creditCost,
+      p_credit_cost: null,
       p_idempotency_key: input.idempotencyKey,
       p_now: now.toISOString(),
     });
@@ -249,10 +250,33 @@ export interface CreatePersistentReservationInput {
   startAt?: Date;
   endAt?: Date;
   requestedMinutes?: number;
-  creditCost: number;
   idempotencyKey: string;
 }
 
+
+function mapPlayNowQuote(quote: StoredPlayNowQuote): PlayNowQuote {
+  return {
+    available: Boolean(quote.available),
+    blockedReason: quote.blockedReason ?? quote.blocked_reason ?? undefined,
+    suiteId: quote.suiteId ?? quote.suite_id ?? undefined,
+    suiteName: quote.suiteName ?? quote.suite_name ?? undefined,
+    availableUntil: toOptionalDate(quote.availableUntil ?? quote.available_until),
+    maxDurationMinutes: toOptionalNumber(quote.maxDurationMinutes ?? quote.max_duration_minutes),
+    durationMinutes: toOptionalNumber(quote.durationMinutes ?? quote.duration_minutes),
+    demandBand: ((quote.demandBand ?? quote.demand_band) as PlayNowQuote["demandBand"]),
+    creditUnits: toOptionalNumber(quote.creditUnits ?? quote.credit_units),
+    creditCost: toOptionalNumber(quote.creditCost ?? quote.credit_cost),
+    memberAvailableCredits: Number(quote.memberAvailableCredits ?? quote.member_available_credits ?? 0),
+    sufficientCredits: quote.sufficientCredits ?? quote.sufficient_credits,
+    options: ((quote.options ?? []) as StoredPlayNowQuoteOption[]).map((option) => ({
+      durationMinutes: Number(option.durationMinutes ?? option.duration_minutes),
+      demandBand: ((option.demandBand ?? option.demand_band ?? "STANDARD") as PlayNowQuoteOptionBand),
+      creditUnits: Number(option.creditUnits ?? option.credit_units),
+      creditCost: Number(option.creditCost ?? option.credit_cost),
+      sufficientCredits: Boolean(option.sufficientCredits ?? option.sufficient_credits),
+    })),
+  };
+}
 function mapReservation(reservation: StoredReservation): PersistentReservation {
   return {
     id: reservation.id,
@@ -383,11 +407,18 @@ function toOptionalDate(value: string | Date | null | undefined): Date | undefin
   return value ? new Date(value) : undefined;
 }
 
+function toOptionalNumber(value: number | string | null | undefined): number | undefined {
+  return value == null ? undefined : Number(value);
+}
+
+type PlayNowQuoteOptionBand = "OFF_PEAK" | "STANDARD" | "PRIME";
+
 interface StoredMemberState {
   person: PersistentMemberState["person"];
   profile: PersistentMemberState["profile"];
   membershipPlan: PersistentMemberState["membershipPlan"];
   availableCredits: number;
+  playNowQuote?: StoredPlayNowQuote;
   location: LocationConfig;
   suites: PracticeSuite[];
   reservations: StoredReservation[];
@@ -395,6 +426,46 @@ interface StoredMemberState {
   auditEvents: Array<{ id: string; type: string; actorId: string; resourceId: string; reason: string; createdAt: string }>;
 }
 
+
+interface StoredPlayNowQuote {
+  available: boolean;
+  blockedReason?: string;
+  blocked_reason?: string;
+  suiteId?: string;
+  suite_id?: string;
+  suiteName?: string;
+  suite_name?: string;
+  availableUntil?: string;
+  available_until?: string;
+  maxDurationMinutes?: number;
+  max_duration_minutes?: number;
+  durationMinutes?: number;
+  duration_minutes?: number;
+  demandBand?: string;
+  demand_band?: string;
+  creditUnits?: number;
+  credit_units?: number;
+  creditCost?: number;
+  credit_cost?: number;
+  memberAvailableCredits?: number;
+  member_available_credits?: number;
+  sufficientCredits?: boolean;
+  sufficient_credits?: boolean;
+  options?: StoredPlayNowQuoteOption[];
+}
+
+interface StoredPlayNowQuoteOption {
+  durationMinutes?: number;
+  duration_minutes?: number;
+  demandBand?: string;
+  demand_band?: string;
+  creditUnits?: number;
+  credit_units?: number;
+  creditCost?: number;
+  credit_cost?: number;
+  sufficientCredits?: boolean;
+  sufficient_credits?: boolean;
+}
 interface StoredReservation {
   id: string;
   location_id?: string;
@@ -550,3 +621,10 @@ interface StoredFacilityTask {
   due_at?: string | null;
   dueAt?: string | null;
 }
+
+
+
+
+
+
+

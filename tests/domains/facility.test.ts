@@ -21,7 +21,7 @@ describe("suite operational inventory behavior", () => {
     const availability = calculateAvailability({ location: locationOneConfig, suites, reservations: [], at: now });
     expect(availability[0]).toMatchObject({ suiteId: suites[0].id, status: "unavailable", maxPlayNowMinutes: 0 });
 
-    const reservation = await service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, creditCost: 1, idempotencyKey: "play-now-maintenance" });
+    const reservation = await service.createPlayNowReservation({ memberProfileId, requestedMinutes: 30, idempotencyKey: "play-now-maintenance" });
     expect(reservation.suiteId).toBe(suites[1].id);
   });
 
@@ -32,7 +32,7 @@ describe("suite operational inventory behavior", () => {
     ledger.grant({ memberProfileId, amount: 10, idempotencyKey: "grant-hold", reason: "test", createdAt: now });
     const service = new ReservationService({ clock: new FixedClock(now), location: locationOneConfig, suites, repository: new InMemoryReservationRepository(), ledger, membershipPlan: TEST_BIRDIE });
 
-    await expect(service.createAdvanceReservation({ memberProfileId, suiteId: suites[0].id, startAt: addMinutes(now, 60), endAt: addMinutes(now, 90), creditCost: 1, idempotencyKey: "advance-admin-hold" })).rejects.toThrow("SUITE_NOT_AVAILABLE");
+    await expect(service.createAdvanceReservation({ memberProfileId, suiteId: suites[0].id, startAt: addMinutes(now, 60), endAt: addMinutes(now, 90), idempotencyKey: "advance-admin-hold" })).rejects.toThrow("SUITE_NOT_AVAILABLE");
   });
 
   it("restored suites return to eligible inventory without bypassing reservation protection", async () => {
@@ -49,3 +49,4 @@ describe("suite operational inventory behavior", () => {
     expect(protectedAvailability[0].maxPlayNowMinutes).toBeLessThan(locationOneConfig.minimumSessionMinutes);
   });
 });
+

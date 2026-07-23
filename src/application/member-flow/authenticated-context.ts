@@ -1,4 +1,4 @@
-﻿import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import type { AuthPrincipal } from "@/domains/identity/types";
 import { SupabaseMemberStore } from "@/application/member-flow/supabase-member-store";
 import { clerkEnvironmentConfigured } from "@/integrations/auth/clerk-boundary";
@@ -22,11 +22,14 @@ export async function getAuthenticatedMemberContext(): Promise<MemberContextResu
   const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
   if (!email) throw new Error("AUTHENTICATED_USER_EMAIL_REQUIRED");
 
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.fullName || email;
+
   const principal: AuthPrincipal = {
     id: `clerk:${user.id}`,
     provider: "clerk",
     externalId: user.id,
     email,
+    displayName,
   };
 
   const store = new SupabaseMemberStore(createSupabaseAdminClient(), systemClock);
@@ -44,3 +47,6 @@ export function requiredEnvironmentVariables(): string[] {
     "SUPABASE_SERVICE_ROLE_KEY",
   ];
 }
+
+
+

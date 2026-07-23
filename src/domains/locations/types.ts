@@ -22,7 +22,7 @@ export type SuiteStatus = "available" | "occupied" | "turnover" | "inspection_re
 
 export const locationOneConfig: LocationConfig = {
   id: "loc_kc_001",
-  name: "Fairway Network Location #1",
+  name: "Fairway KC",
   timezone: "America/Chicago",
   suiteCount: 12,
   minimumSessionMinutes: 30,
@@ -41,3 +41,4 @@ export function createSeedSuites(location: LocationConfig): PracticeSuite[] {
     status: "available",
   }));
 }
+

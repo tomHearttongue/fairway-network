@@ -124,12 +124,14 @@ export async function grantFacilitiesRole(client: Client, memberProfileId: strin
 }
 
 export async function setCreditTarget(client: Client, memberProfileId: string, targetCredits: number, reason: string): Promise<void> {
-  const current = await client.query("select fairway_available_credits($1)::int as credits", [memberProfileId]);
-  const delta = targetCredits - Number(current.rows[0].credits);
-  if (delta === 0) return;
+  const targetUnits = targetCredits * 2;
+  if (!Number.isInteger(targetUnits)) throw new Error(`Experience QA credit target must align to half-credit units: ${targetCredits}`);
+  const current = await client.query("select fairway_available_credit_units($1)::int as units", [memberProfileId]);
+  const deltaUnits = targetUnits - Number(current.rows[0].units);
+  if (deltaUnits === 0) return;
   await client.query(
     "insert into credit_ledger_entries (member_profile_id, entry_type, amount, balance_delta, idempotency_key, reason, actor_id) values ($1, 'adjustment', $2, $3, $4, $5, 'experience-qa')",
-    [memberProfileId, Math.abs(delta), delta, `experience-qa:${memberProfileId}:credit-target:${targetCredits}:${Date.now()}`, reason],
+    [memberProfileId, Math.abs(deltaUnits), deltaUnits, `experience-qa:${memberProfileId}:credit-target:${targetCredits}:${Date.now()}`, reason],
   );
 }
 

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedMemberContext, requiredEnvironmentVariables } from "@/application/member-flow/authenticated-context";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
       startAt: body.startAt ? new Date(String(body.startAt)) : undefined,
       endAt: body.endAt ? new Date(String(body.endAt)) : undefined,
       requestedMinutes: body.requestedMinutes ? Number(body.requestedMinutes) : undefined,
-      creditCost: Number(body.creditCost ?? 1),
       idempotencyKey: String(body.idempotencyKey ?? crypto.randomUUID()),
     });
 
@@ -34,3 +33,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "UNKNOWN_ERROR" }, { status: 409 });
   }
 }
+

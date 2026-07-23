@@ -219,13 +219,13 @@ try {
   await memberPage.getByText("Guests").waitFor();
   await assertMemberExperienceBasics(memberPage, "mobile play");
 
-  const playNowButton = memberPage.getByRole("button", { name: "Play Now" }).first();
+  const playNowButton = memberPage.getByRole("button", { name: "Confirm Play Now" }).first();
   assert(await playNowButton.isEnabled(), "Play Now button should be enabled for golden demo");
   await playNowButton.click();
-  await memberPage.getByText("ready to play", { exact: false }).waitFor({ timeout: 45000 });
-  await memberPage.getByRole("button", { name: "Start session" }).click();
+  await memberPage.getByText(/is ready|You are ready/i).first().waitFor({ timeout: 45000 });
+  await memberPage.getByRole("button", { name: /Start Session/i }).first().click();
   await memberPage.getByText("Session started", { exact: false }).waitFor({ timeout: 45000 });
-  await memberPage.getByRole("button", { name: "Finish session" }).click();
+  await memberPage.getByRole("button", { name: /Finish Session/i }).first().click();
   await memberPage.getByRole("status").filter({ hasText: "Session complete" }).waitFor({ timeout: 45000 });
   log("MEMBER_PLAY_NOW_SESSION_COMPLETION_UI_VERIFIED");
 

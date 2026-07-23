@@ -3,6 +3,7 @@ export interface AuthPrincipal {
   provider: "clerk" | "development";
   externalId: string;
   email: string;
+  displayName?: string;
 }
 
 export interface Person {
@@ -17,3 +18,5 @@ export interface MemberProfile {
   homeLocationId: string;
   memberNumber: string;
 }
+
+

@@ -21,6 +21,8 @@ type ScreenshotMetadata = {
   prdRequirementIds: string[];
   principles: string[];
   capability: string;
+  actualViewport: { innerWidth: number; innerHeight: number; devicePixelRatio: number };
+  screenshotPixels: { width: number; height: number };
 };
 
 type NetworkEvidence = { url: string; method: string; failure: string; status?: number; classification: "expected-cancellation" | "unexpected-failure"; screen?: string };
@@ -62,15 +64,16 @@ export function flushQualityCapture(name: string, capture: QualityCapture): void
   writeJson(path.join(evidenceRoot, `${safeName(name)}-quality.json`), capture);
 }
 
-export async function captureScreen(page: Page, testInfo: TestInfo, metadata: Omit<ScreenshotMetadata, "file" | "viewport" | "screenshotKind"> & { order: number }): Promise<void> {
+export async function captureScreen(page: Page, testInfo: TestInfo, metadata: Omit<ScreenshotMetadata, "file" | "viewport" | "screenshotKind" | "actualViewport" | "screenshotPixels"> & { order: number }): Promise<void> {
   await page.waitForLoadState("networkidle").catch(() => undefined);
   const viewport = viewportName(testInfo);
+  const actualViewport = await page.evaluate(() => ({ innerWidth: window.innerWidth, innerHeight: window.innerHeight, devicePixelRatio: window.devicePixelRatio }));
   const fileName = `${String(metadata.order).padStart(2, "0")}-${safeName(metadata.screen)}.png`;
   const relativeFile = path.join(metadata.persona, viewport, fileName).replaceAll("\\", "/");
   const absoluteFile = path.join(screenshotRoot, relativeFile);
   mkdirSync(path.dirname(absoluteFile), { recursive: true });
-  await page.screenshot({ path: absoluteFile, fullPage: false });
-  appendManifest("screenshot-manifest.json", { ...metadata, screenshotKind: "viewport", viewport, file: `screenshots/${relativeFile}` });
+  const screenshot = await page.screenshot({ path: absoluteFile, fullPage: false });
+  appendManifest("screenshot-manifest.json", { ...metadata, screenshotKind: "viewport", viewport, actualViewport, screenshotPixels: pngDimensions(screenshot), file: `screenshots/${relativeFile}` });
 }
 
 export async function runA11y(page: Page, testInfo: TestInfo, screen: string, persona: ReviewPersona): Promise<void> {
@@ -140,6 +143,46 @@ export async function expectResponsiveBasics(page: Page, label: string): Promise
   expect(basics.offscreenPrimarySamples, `${label} should keep primary elements in view after navigation`).toEqual([]);
 }
 
+export async function expectMobilePlayStructure(page: Page, label: string): Promise<void> {
+  const report = await page.evaluate(() => {
+    const isVisible = (element: HTMLElement) => Boolean(((element as any).checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) ?? (element.offsetWidth || element.offsetHeight || element.getClientRects().length)));
+    const viewportWidth = window.innerWidth;
+    const panelSelector = ".play-layout > .play-now-card, .play-layout > .completion-card, .play-layout > .flow-panel";
+    const panels = Array.from(document.querySelectorAll<HTMLElement>(panelSelector)).filter(isVisible);
+    const narrowPanels = panels
+      .map((element) => ({ name: element.className.toString(), rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => viewportWidth <= 430 && rect.width < Math.min(320, viewportWidth - 32))
+      .map(({ name, rect }) => `${name} width=${Math.round(rect.width)}`);
+    const overlappingPanels: string[] = [];
+    const rects = panels.map((element) => ({ name: element.className.toString(), rect: element.getBoundingClientRect() }));
+    for (let index = 0; index < rects.length - 1; index += 1) {
+      const current = rects[index];
+      const next = rects[index + 1];
+      const horizontalOverlap = current.rect.left < next.rect.right && current.rect.right > next.rect.left;
+      const verticalOverlap = current.rect.top < next.rect.bottom && current.rect.bottom > next.rect.top;
+      if (horizontalOverlap && verticalOverlap) overlappingPanels.push(`${current.name} overlaps ${next.name}`);
+    }
+    const formControls = Array.from(document.querySelectorAll<HTMLElement>(".guest-form.refined input, .guest-form.refined button, .guest-actions button")).filter(isVisible);
+    const narrowControls = formControls
+      .map((element) => ({ label: element.textContent?.trim() || element.getAttribute("placeholder") || element.tagName.toLowerCase(), rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => viewportWidth <= 430 && rect.width < Math.min(220, viewportWidth - 48))
+      .map(({ label, rect }) => `${label} width=${Math.round(rect.width)}`);
+    const textContainers = Array.from(document.querySelectorAll<HTMLElement>(".flow-panel summary span, .section-heading span, .guest-copy, .session-state-card h3")).filter(isVisible);
+    const collapsedText = textContainers
+      .map((element) => ({ text: (element.innerText || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 60), rect: element.getBoundingClientRect() }))
+      .filter(({ text, rect }) => viewportWidth <= 430 && text.length > 8 && rect.width < 130)
+      .map(({ text, rect }) => `${text} width=${Math.round(rect.width)}`);
+    return { viewportWidth, panelCount: panels.length, narrowPanels, overlappingPanels, narrowControls, collapsedText };
+  });
+  if (report.viewportWidth <= 430) {
+    expect(report.panelCount, `${label} should expose Play major panels`).toBeGreaterThan(0);
+    expect(report.narrowPanels, `${label} should stack major Play panels at usable widths`).toEqual([]);
+    expect(report.overlappingPanels, `${label} should not overlap Play panels`).toEqual([]);
+    expect(report.narrowControls, `${label} should keep guest controls usable`).toEqual([]);
+    expect(report.collapsedText, `${label} should not collapse important Play labels`).toEqual([]);
+  }
+}
+
 export function writeReviewNote(name: string, value: unknown): void {
   mkdirSync(evidenceRoot, { recursive: true });
   writeJson(path.join(evidenceRoot, `${safeName(name)}.json`), value);
@@ -168,6 +211,11 @@ function appendManifest(fileName: string, entry: unknown): void {
 
 function writeJson(filePath: string, value: unknown): void {
   writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+function pngDimensions(buffer: Buffer): { width: number; height: number } {
+  if (buffer.length >= 24 && buffer.toString("ascii", 1, 4) === "PNG") return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  return { width: 0, height: 0 };
 }
 
 function safeName(value: string): string {

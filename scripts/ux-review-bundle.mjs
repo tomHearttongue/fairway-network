@@ -8,18 +8,24 @@ const git = "C:\\Users\\TheMachine\\.cache\\codex-runtimes\\codex-primary-runtim
 const artifactRoot = path.join(repoRoot, "artifacts", "ux-review");
 const staging = path.join(artifactRoot, "bundle-staging");
 const zipPath = path.join(artifactRoot, "fairway-ux-review.zip");
+const slice = "VS1G.4 Product Acceptance Evidence Integrity, Mobile Experience Recovery, and Completion UX";
+
+assertCleanProductTree();
+const commitSha = gitText(["rev-parse", "HEAD"]);
+const branch = gitText(["branch", "--show-current"]);
+const timestamp = new Date().toISOString();
 
 const qa = spawnSync(pnpm, ["ux:qa"], { cwd: repoRoot, stdio: "inherit", env: { ...process.env, NODE_OPTIONS: appendNodeOption(process.env.NODE_OPTIONS, "--use-system-ca") }, windowsHide: true, shell: true });
 if (qa.error) console.error(`Experience QA could not start: ${qa.error.message}`);
 if ((qa.status ?? 1) !== 0) process.exit(qa.status ?? 1);
 
+assertCleanProductTree();
+if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("Cannot generate Product Acceptance bundle: HEAD changed during bundle generation.");
+
 rmSync(staging, { recursive: true, force: true });
 rmSync(zipPath, { force: true });
 mkdirSync(staging, { recursive: true });
 
-const commitSha = gitText(["rev-parse", "HEAD"]);
-const branch = gitText(["branch", "--show-current"]);
-const timestamp = new Date().toISOString();
 const screenshotManifest = readJson(path.join(artifactRoot, "evidence", "screenshot-manifest.json"), []);
 const accessibility = readJson(path.join(artifactRoot, "evidence", "accessibility-findings.json"), []);
 const playwrightResults = readJson(path.join(repoRoot, "artifacts", "playwright", "results.json"), null);
@@ -29,16 +35,18 @@ const quality = qualityFiles.flatMap((file) => {
   return [{ file: path.relative(artifactRoot, file).replaceAll("\\", "/"), ...value }];
 });
 const summary = buildSummary(playwrightResults, screenshotManifest, accessibility, quality);
+const sourceSnapshot = copySourceSnapshot(commitSha);
 
 writeFileSync(path.join(staging, "00-README-FIRST.md"), reviewReadme({ commitSha, branch, timestamp, summary }));
 writeJson(path.join(staging, "manifest.json"), {
   project: "Fairway Network",
-  slice: "VS1G.3 Reservation Pricing Authority and Product Acceptance Remediation Round 2",
+  slice,
   commitSha,
   branch,
   dlsVersion: "0.1",
   generatedAt: timestamp,
   reviewStatus: "PENDING HUMAN REVIEW",
+  sourceSnapshot,
   personas: ["demo-active-birdie", "new-golfer", "power-tour-member", "guest-host-member", "constrained-member", "facilities-user"],
   viewports: ["390x844 mobile-primary", "360x800 mobile-compact", "1440x1000 desktop", "1600x900 presentation"],
   testResultSummary: summary,
@@ -53,6 +61,7 @@ writeJson(path.join(staging, "manifest.json"), {
   },
 });
 writeJson(path.join(staging, "evidence", "test-summary.json"), summary);
+writeJson(path.join(staging, "evidence", "bundle-provenance.json"), { commitSha, branch, generatedAt: timestamp, sourceSnapshot });
 
 copyIfExists("docs/product/PRD.md", path.join(staging, "docs", "product", "PRD.md"));
 copyIfExists("docs/design/DESIGN-LANGUAGE-SYSTEM.md", path.join(staging, "docs", "design", "DESIGN-LANGUAGE-SYSTEM.md"));
@@ -67,13 +76,32 @@ copyIfExists(path.join(repoRoot, "artifacts", "playwright", "playwright-report")
 mkdirSync(path.join(staging, "traces"), { recursive: true });
 writeFileSync(path.join(staging, "traces", "README.md"), "Failure traces are retained in local Playwright artifacts when generated. Authenticated trace ZIP files are not included in the shareable review bundle because they may contain session cookies or tokens.\n");
 
-copySourceSnapshot();
 assertNoSecrets(staging);
+verifyStaging(staging, commitSha);
 
 execFileSync("powershell.exe", ["-NoProfile", "-Command", `Compress-Archive -Path '${staging.replaceAll("'", "''")}\\*' -DestinationPath '${zipPath.replaceAll("'", "''")}' -Force`], { stdio: "ignore" });
+const zipVerification = verifyGeneratedBundle(zipPath, { commitSha });
 const size = statSync(zipPath).size;
-writeJson(path.join(artifactRoot, "bundle-summary.json"), { zipPath: path.relative(repoRoot, zipPath).replaceAll("\\", "/"), bytes: size, megabytes: Number((size / 1024 / 1024).toFixed(2)), generatedAt: timestamp, commitSha, branch });
-console.log(`Generated ${path.relative(repoRoot, zipPath)} (${(size / 1024 / 1024).toFixed(2)} MB)`);
+writeJson(path.join(artifactRoot, "bundle-summary.json"), { zipPath: path.relative(repoRoot, zipPath).replaceAll("\\", "/"), bytes: size, megabytes: Number((size / 1024 / 1024).toFixed(2)), generatedAt: timestamp, commitSha, branch, sourceSnapshot, zipVerification });
+console.log(`Generated ${path.relative(repoRoot, zipPath)} (${(size / 1024 / 1024).toFixed(2)} MB) for ${zipVerification.manifestCommitSha}`);
+
+function assertCleanProductTree() {
+  const dirty = gitText(["status", "--porcelain", "--untracked-files=all"]).split(/\r?\n/).filter(Boolean);
+  const relevant = dirty.filter((entry) => !isIgnorableWorkingTreePath(statusPath(entry)));
+  if (relevant.length) {
+    throw new Error(`Cannot generate Product Acceptance bundle: working tree contains uncommitted product/source changes.\n${relevant.join("\n")}`);
+  }
+}
+
+function statusPath(entry) {
+  const raw = entry.slice(3).trim();
+  return raw.includes(" -> ") ? raw.split(" -> ").pop() : raw;
+}
+
+function isIgnorableWorkingTreePath(file) {
+  const normalized = file.replaceAll("\\", "/");
+  return normalized.startsWith("artifacts/") || normalized.startsWith(".next/") || normalized.startsWith("test-results/") || normalized.startsWith("playwright-report/") || normalized.startsWith("coverage/") || normalized.endsWith(".log");
+}
 
 function buildSummary(results, screenshots, a11y, qualityEntries) {
   const tests = results?.stats ?? {};
@@ -91,7 +119,7 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
     goldenDemoFunctionalResult: tests.unexpected === 0 ? "passed" : "failed",
     facilitiesGoldenDemoResult: tests.unexpected === 0 ? "passed" : "failed",
     crossBrowserSmokeResult: tests.unexpected === 0 ? "passed" : "failed",
-    responsiveChecks: "included in Playwright assertions",
+    responsiveChecks: "included in Playwright assertions, including mobile Play panel width checks",
     accessibilityFindingCountsBySeverity: bySeverity,
     accessibilityScreenCount: a11y.length,
     consoleErrorCount: consoleErrors,
@@ -107,17 +135,52 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
 }
 
 function reviewReadme({ commitSha, branch, timestamp, summary }) {
-  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: VS1G.3 - Reservation Pricing Authority and Product Acceptance Remediation Round 2\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate the second Product Acceptance remediation pass for VS1G, including server-authoritative reservation pricing, Play Now quote/confirmation, honest booking hierarchy, guest waiver UX, compact mobile behavior, and production-like review evidence.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Reviews server-derived Play Now duration and credit quote, then confirms Play Now.\n3. Sees assigned suite, credit impact, access readiness, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees completion feedback.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
+  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: ${slice}\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate VS1G.4 Product Acceptance remediation, including exact artifact provenance, mobile Play recovery, member-centered completion UX, separated constrained scenarios, and reviewable server-authoritative pricing source.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Reviews server-derived Play Now duration and credit quote, then confirms Play Now.\n3. Sees assigned suite, credit impact, access readiness, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees a member-centered completion summary.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
 }
 
-function copySourceSnapshot() {
-  const tracked = gitText(["ls-files"]).split(/\r?\n/).filter(Boolean);
-  const include = [/^app\//, /^src-page\//, /^src\//, /^tests\/experience\//, /^scripts\/(run-experience-qa|ux-review-bundle)\.mjs$/, /^playwright\.config\.ts$/, /^package\.json$/, /^pnpm-lock\.yaml$/, /^docs\//, /^README\.md$/];
+function copySourceSnapshot(commit) {
+  const tracked = gitText(["ls-tree", "-r", "--name-only", commit]).split(/\r?\n/).filter(Boolean);
+  const include = [/^app\//, /^src-page\//, /^src\//, /^tests\/experience\//, /^tests\/domains\//, /^scripts\/(run-experience-qa|ux-review-bundle|verify-vertical-slice-1g)\.mjs$/, /^playwright\.config\.ts$/, /^package\.json$/, /^pnpm-lock\.yaml$/, /^supabase\/migrations\//, /^supabase\/seed\.sql$/, /^docs\//, /^README\.md$/];
+  let fileCount = 0;
   for (const file of tracked) {
     if (!include.some((pattern) => pattern.test(file))) continue;
     if (isForbiddenPath(file)) continue;
-    copyIfExists(file, path.join(staging, "source", file));
+    const destination = path.join(staging, "source", file);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    writeFileSync(destination, gitBlob(commit, file));
+    fileCount += 1;
   }
+  return { commitSha: commit, method: "git show <commit>:<path>", fileCount };
+}
+
+function verifyStaging(root, commit) {
+  const required = [
+    "manifest.json",
+    "00-README-FIRST.md",
+    "evidence/screenshot-manifest.json",
+    "source/src/domains/reservations/pricing.ts",
+    "source/supabase/migrations/202607230001_reservation_pricing_authority.sql",
+  ];
+  for (const file of required) {
+    if (!existsSync(path.join(root, file))) throw new Error(`Required bundle artifact missing before ZIP: ${file}`);
+  }
+  const manifest = readJson(path.join(root, "manifest.json"), null);
+  if (manifest?.commitSha !== commit) throw new Error("Staged manifest commit does not match HEAD.");
+  const readme = readFileSync(path.join(root, "00-README-FIRST.md"), "utf8");
+  if (!readme.includes(commit)) throw new Error("Staged README commit does not match HEAD.");
+}
+
+function verifyGeneratedBundle(file, { commitSha: expectedSha }) {
+  const verifyRoot = path.join(artifactRoot, "bundle-verify");
+  rmSync(verifyRoot, { recursive: true, force: true });
+  mkdirSync(verifyRoot, { recursive: true });
+  execFileSync("powershell.exe", ["-NoProfile", "-Command", `Expand-Archive -Path '${file.replaceAll("'", "''")}' -DestinationPath '${verifyRoot.replaceAll("'", "''")}' -Force`], { stdio: "ignore" });
+  assertNoSecrets(verifyRoot);
+  verifyStaging(verifyRoot, expectedSha);
+  const manifest = readJson(path.join(verifyRoot, "manifest.json"), null);
+  const verification = { manifestCommitSha: manifest.commitSha, sourceSnapshotCommitSha: manifest.sourceSnapshot?.commitSha, requiredArtifactsPresent: true, secretExclusion: "passed" };
+  rmSync(verifyRoot, { recursive: true, force: true });
+  return verification;
 }
 
 function assertNoSecrets(root) {
@@ -137,7 +200,7 @@ function assertNoSecrets(root) {
 
 function isForbiddenPath(file) {
   const normalized = file.replaceAll("\\", "/").toLowerCase();
-  return /(^|\/)\.env(?:\.|$)/.test(normalized) || normalized.includes("storagestate") || normalized.includes("cookie") || normalized.endsWith("trace.zip") || normalized.includes("node_modules") || normalized.includes("/.next/");
+  return /(^|\/)\.env(?:\.|$)/.test(normalized) || normalized.includes("storagestate") || normalized.includes("cookie") || normalized.endsWith("trace.zip") || normalized.includes("node_modules") || normalized.includes("/.next/") || normalized.includes("/.git/");
 }
 
 function isTextLike(file) {
@@ -178,6 +241,10 @@ function writeJson(file, value) {
 
 function gitText(args) {
   return execFileSync(git, args, { cwd: repoRoot, encoding: "utf8" }).trim();
+}
+
+function gitBlob(commit, file) {
+  return execFileSync(git, ["show", `${commit}:${file}`], { cwd: repoRoot });
 }
 
 function appendNodeOption(value, option) {

@@ -1069,3 +1069,92 @@ input:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* VS1G.4 Product Acceptance remediation */
+.completion-card {
+  grid-column: span 7;
+  border: 1px solid #d5c7a9;
+  border-radius: 8px;
+  padding: 24px;
+  background: #fbf7ed;
+  display: grid;
+  gap: 10px;
+}
+
+.completion-card h2 {
+  margin: 0;
+  color: var(--fw-green);
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1;
+}
+
+.completion-card p {
+  margin: 0;
+  color: var(--fw-muted);
+}
+
+.completion-card strong {
+  color: var(--fw-ink);
+}
+
+.flow-panel summary span,
+.section-heading span {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+@media (max-width: 700px) {
+  .play-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .play-layout > .play-now-card,
+  .play-layout > .completion-card,
+  .play-layout > .flow-panel {
+    width: 100%;
+    flex: 0 0 auto;
+    grid-column: auto;
+  }
+
+  .completion-card,
+  .play-now-card,
+  .flow-panel {
+    padding: 16px;
+  }
+
+  .flow-panel summary {
+    align-items: flex-start;
+  }
+
+  .flow-panel summary span,
+  .section-heading span {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .guest-form.refined {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .guest-form.refined label,
+  .guest-form.refined input,
+  .guest-form.refined button,
+  .guest-actions button {
+    width: 100%;
+  }
+
+  .guest-tile {
+    grid-template-columns: 1fr;
+  }
+
+  .guest-actions {
+    justify-content: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

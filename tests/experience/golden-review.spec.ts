@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { assertDevelopmentEnv, loadHarnessEnv } from "./support/env";
 import { bootstrapPersona, connectDb, grantFacilitiesRole, loginPersona, memberProfileForEmail, PERSONAS, resetHarnessFacilityState, setCreditTarget } from "./support/personas";
-import { captureScreen, expectResponsiveBasics, flushQualityCapture, runA11y, startQualityCapture, writeReviewNote } from "./support/evidence";
+import { captureScreen, expectMobilePlayStructure, expectResponsiveBasics, flushQualityCapture, runA11y, startQualityCapture, writeReviewNote } from "./support/evidence";
 
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.3 Golden Demo experience", () => {
+test.describe("VS1G.4 Golden Demo experience", () => {
   test("member golden demo and facilities turnover restoration", async ({ browser }, testInfo) => {
     const memberContext = await browser.newContext();
     const page = await memberContext.newPage();
@@ -37,6 +37,7 @@ test.describe("VS1G.3 Golden Demo experience", () => {
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await page.getByText("Suite details").waitFor();
       await expectResponsiveBasics(page, "play now surface");
+      await expectMobilePlayStructure(page, "play now surface");
       await runA11y(page, testInfo, "Play Now", active.key);
       await captureScreen(page, testInfo, {
         order: 2,
@@ -51,6 +52,8 @@ test.describe("VS1G.3 Golden Demo experience", () => {
 
       await page.getByRole("button", { name: "Confirm Play Now" }).first().click();
       await page.getByText(/is ready|You are ready/i).first().waitFor({ timeout: 45_000 });
+      await expectMobilePlayStructure(page, "play now confirmation");
+      await expect(page.getByRole("button", { name: /Start Session/i })).toHaveCount(1);
       await captureScreen(page, testInfo, {
         order: 3,
         screen: "play-now-confirmation",
@@ -65,6 +68,8 @@ test.describe("VS1G.3 Golden Demo experience", () => {
       await page.getByRole("button", { name: /Start Session/i }).first().click();
       await page.getByText(/Session started/i).waitFor({ timeout: 45_000 });
       await page.getByText("Session active").last().waitFor();
+      await expectMobilePlayStructure(page, "active session");
+      await expect(page.getByRole("button", { name: /Finish Session/i })).toHaveCount(1);
       await runA11y(page, testInfo, "Active Session", active.key);
       await captureScreen(page, testInfo, {
         order: 4,
@@ -79,6 +84,7 @@ test.describe("VS1G.3 Golden Demo experience", () => {
 
       await page.getByRole("button", { name: "My Golf", exact: true }).click();
       await page.getByText("Golfer Passport").waitFor();
+      await expect(page.getByText("Session started. Enjoy your Practice Suite.")).toHaveCount(0);
       await expect(page.getByText("Demo official handicap")).toBeVisible();
       await expect(page.getByText("Driver", { exact: true })).toBeVisible();
       await expect(page.getByText("264 yd").first()).toBeVisible();
@@ -96,16 +102,18 @@ test.describe("VS1G.3 Golden Demo experience", () => {
 
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await page.getByRole("button", { name: /Finish Session/i }).first().click();
-      await page.getByRole("status").filter({ hasText: /Session complete/i }).waitFor({ timeout: 45_000 });
+      await page.getByRole("status").filter({ hasText: /Nice work, Tom/i }).waitFor({ timeout: 45_000 });
+      await expect(page.getByText("Your Fairway activity has been saved.")).toBeVisible();
+      await expectMobilePlayStructure(page, "session completion summary");
       await captureScreen(page, testInfo, {
         order: 6,
         screen: "session-summary",
         route: "/",
         persona: active.key,
-        state: "session-completed-turnover-queued",
+        state: "member-centered-session-summary",
         prdRequirementIds: ["FR-UX-014", "FR-FAC-006"],
         principles: ["clear-system-status", "calm-confidence"],
-        capability: "Session completion gives intentional summary language and queues suite turnover.",
+        capability: "Session completion gives member-centered summary language while lifecycle and turnover remain correct underneath.",
       });
 
       const lifecycle = await getLatestCompletedLifecycle(client, active.email);

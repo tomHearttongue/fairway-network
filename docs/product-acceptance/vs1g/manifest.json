@@ -1,0 +1,38 @@
+﻿{
+    "slice":  "VS1G - Fairway Experience Foundation",
+    "status":  "PRODUCT ACCEPTED",
+    "accepted_commit_sha":  "f2de78e1df7669300ffbe1e13578eebed2cbe00d",
+    "dls_version":  "0.1",
+    "acceptance_date":  "2026-07-23",
+    "review_bundle_provenance_sha":  "f2de78e1df7669300ffbe1e13578eebed2cbe00d",
+    "outcomes":  {
+                     "functional_acceptance":  "PASS",
+                     "automated_experience_qa":  "PASS",
+                     "human_product_acceptance":  "PASS",
+                     "overall":  "PRODUCT ACCEPTED"
+                 },
+    "accepted_surfaces":  [
+                              "Sign-in",
+                              "Member Home",
+                              "Play Now pricing/duration",
+                              "Reservation confirmation",
+                              "Active session",
+                              "Session completion",
+                              "My Golf / Golfer Passport",
+                              "New-golfer empty state",
+                              "Guest states",
+                              "Constrained states",
+                              "Facilities/Cleaning workflow"
+                          ],
+    "accepted_non_blocking_followups":  {
+                                            "P2":  [
+                                                       "Ready guest Check readiness may be simplified later.",
+                                                       "Completion page-level Play helper copy may become state-aware.",
+                                                       "Brand/visual signature remains eligible for later DLS refinement.",
+                                                       "WebKit/Safari automated coverage required before production mobile readiness.",
+                                                       "Rich demo-world fidelity belongs to DU1."
+                                                   ]
+                                        },
+    "deferred_scope_note":  "P3 and intentionally deferred capabilities remain governed by the PRD and product backlog, not copied into VS1G acceptance scope.",
+    "generated_artifacts_committed":  false
+}

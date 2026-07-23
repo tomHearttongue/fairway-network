@@ -280,7 +280,7 @@ export function deriveDemoGolfProfile(universe: DemoUniverse, memberProfileId: s
     displayName: firstName(member.displayName),
     label: member.id === "demo-tom" ? "Demo Golfer" : labelForArchetype(member.archetype),
     officialGolf: officialGolfFor(member),
-    performance: (["driver", "7i", "pw"] as const).map((clubCode) => summarizeClub(shots, clubCode)).filter((summary): summary is NonNullable<typeof summary> => Boolean(summary)),
+    performance: (["driver", "7i", "pw"] as const).map((clubCode) => summarizeClub(shots, clubCode, member)).filter((summary): summary is NonNullable<typeof summary> => Boolean(summary)),
     activity: sessions.slice(0, 3).map((session, index) => ({
       id: `demo_activity_${member.id}_${index + 1}`,
       title: activityTitle(session, index),
@@ -496,11 +496,11 @@ function buildAccessGrants(reservations: DemoReservation[]): DemoAccessGrant[] {
 
 function buildFacilityTasks(reservations: DemoReservation[], sessions: DemoSession[], scenario: DemoScenarioKey): DemoFacilityTask[] {
   const tasks: DemoFacilityTask[] = [];
-  const active = reservations.find((reservation) => reservation.status === "checked_in");
+  const active = scenario === "facility-incident" ? reservations.find((reservation) => reservation.status === "checked_in") : undefined;
   if (active) {
     const session = sessions.find((item) => item.reservationId === active.id);
     if (session) {
-      tasks.push({ id: stableUuid(`task:turnover:${session.id}`), locationId: DEMO_LOCATION_ID, suiteId: active.suiteId, taskType: "turnover", priority: scenario === "busy-prime" ? 150 : 100, status: scenario === "facility-incident" ? "claimed" : "open", sourceReservationId: active.id, sourceSessionId: session.id, dueAt: addMinutes(active.endAt, LOCATION.turnoverBufferMinutes), idempotencyKey: `du1:task:turnover:${session.id}` });
+      tasks.push({ id: stableUuid(`task:turnover:${session.id}`), locationId: DEMO_LOCATION_ID, suiteId: active.suiteId, taskType: "turnover", priority: 100, status: "claimed", sourceReservationId: active.id, sourceSessionId: session.id, dueAt: addMinutes(active.endAt, LOCATION.turnoverBufferMinutes), idempotencyKey: `du1:task:turnover:${session.id}` });
     }
   }
   if (scenario === "facility-incident") {
@@ -530,7 +530,7 @@ function buildShots(members: DemoMember[], sessions: DemoSession[]): DemoShot[] 
   const deepMembers = members.filter((member) => DEEP_PERSONA_FACTS.some((fact) => fact.id === member.id));
   for (const member of deepMembers) {
     const memberSessions = sessions.filter((session) => session.memberProfileId === member.memberProfileId && session.endedAt);
-    const count = member.id === "demo-tom" ? 280 : member.id === "new-golfer" || member.id === "facilities-fran" ? 0 : 90;
+    const count = member.id === "demo-tom" ? 280 : member.id === "champions-member" ? 340 : member.id === "new-golfer" || member.id === "facilities-fran" ? 0 : 90;
     for (let index = 0; index < count; index += 1) {
       const session = memberSessions[index % Math.max(memberSessions.length, 1)];
       if (!session) continue;
@@ -542,8 +542,8 @@ function buildShots(members: DemoMember[], sessions: DemoSession[]): DemoShot[] 
   return shots.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
 }
 
-function summarizeClub(shots: DemoShot[], clubCode: "driver" | "7i" | "pw"): DemoGolfProfile["performance"][number] | null {
-  const clubShots = shots.filter((shot) => shot.clubCode === clubCode).slice(-clubCodeTargetSamples(clubCode));
+function summarizeClub(shots: DemoShot[], clubCode: "driver" | "7i" | "pw", member?: DemoMember): DemoGolfProfile["performance"][number] | null {
+  const clubShots = shots.filter((shot) => shot.clubCode === clubCode).slice(-clubCodeTargetSamples(clubCode, member));
   if (clubShots.length < 12) return null;
   const ballSpeeds = clubShots.map((shot) => shot.ballSpeedMph).filter((value): value is number => value !== undefined);
   return {
@@ -643,6 +643,11 @@ function clubForShot(member: DemoMember, index: number): DemoClub["code"] {
     if (index < 79 || index % 5 === 0) return "7i";
     if (index < 107 || index % 4 === 0) return "pw";
   }
+  if (member.id === "champions-member") {
+    if (index < 118) return "driver";
+    if (index < 214) return "7i";
+    if (index < 288) return "pw";
+  }
   const bag = bagForArchetype(member.archetype);
   return bag[index % Math.min(bag.length, 10)].code;
 }
@@ -653,6 +658,11 @@ function baselineFor(member: DemoMember, clubCode: DemoClub["code"], index: numb
     if (clubCode === "driver") return { carry: 261 + 10 * monthProgress, ballSpeed: 159 + 5 * monthProgress, dispersion: 28, variance: 7 };
     if (clubCode === "7i") return { carry: 162 + 7 * monthProgress, ballSpeed: 118 + 3 * monthProgress, dispersion: 18, variance: 5 };
     if (clubCode === "pw") return { carry: 126 + 6 * monthProgress, ballSpeed: 93 + 3 * monthProgress, dispersion: 12, variance: 4 };
+  }
+  if (member.id === "champions-member") {
+    if (clubCode === "driver") return { carry: 281, ballSpeed: 171, dispersion: 22, variance: 5 };
+    if (clubCode === "7i") return { carry: 181, ballSpeed: 128, dispersion: 14, variance: 4 };
+    if (clubCode === "pw") return { carry: 141, ballSpeed: 101, dispersion: 9, variance: 3 };
   }
   const distanceBias = member.archetype === "competitive-low-handicap" ? 18 : member.archetype === "high-variance" ? 12 : member.archetype === "improving-high-handicap" ? -10 : 0;
   const variance = member.archetype === "high-variance" ? 12 : member.archetype === "improving-high-handicap" ? 9 : 6;
@@ -688,7 +698,8 @@ function activityDetail(session: DemoSession, shots: DemoShot[]): string {
   return clubs.length ? `${clubs.join(" and ")} work over ${minutes} minutes` : `${minutes}-minute Fairway practice session`;
 }
 
-function clubCodeTargetSamples(clubCode: "driver" | "7i" | "pw"): number {
+function clubCodeTargetSamples(clubCode: "driver" | "7i" | "pw", member?: DemoMember): number {
+  if (member?.id === "champions-member") return clubCode === "driver" ? 118 : clubCode === "7i" ? 96 : 74;
   return clubCode === "driver" ? 43 : clubCode === "7i" ? 36 : 28;
 }
 

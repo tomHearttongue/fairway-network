@@ -703,3 +703,243 @@ input:focus-visible {
   white-space: nowrap;
   border: 0;
 }
+
+/* VS1G.2 Product Acceptance remediation */
+:root {
+  --muted: #4f5b53;
+  --gold: #7b5e20;
+  --fw-muted: #4f5b53;
+  --fw-brass: #7b5e20;
+  --fw-brass-text: #6f541d;
+}
+
+.eyebrow,
+.activity-row time {
+  color: var(--fw-brass-text);
+}
+
+.signin-panel h1 {
+  font-size: clamp(38px, 8vw, 74px);
+  line-height: .94;
+}
+
+.member-context {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  padding: 4px 0 2px;
+}
+
+.member-context.compact {
+  padding-bottom: 0;
+}
+
+.member-context h1 {
+  margin: 0;
+  color: var(--fw-ink);
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.member-context p {
+  margin: 7px 0 0;
+  color: var(--fw-muted);
+  line-height: 1.45;
+}
+
+.member-summary {
+  min-width: min(260px, 38vw);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--fw-muted);
+  font-weight: 850;
+}
+
+.member-summary span {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--fw-line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: var(--fw-paper);
+}
+
+.member-summary strong {
+  color: var(--fw-ink);
+}
+
+.demo-badge {
+  background: var(--fw-green) !important;
+  border-color: var(--fw-green) !important;
+  color: #fffdf7 !important;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.play-now-card {
+  grid-column: span 7;
+  background: #fbf7ed;
+  border-color: #d5c7a9;
+}
+
+.play-now-card h2,
+.passport-hero h2 {
+  margin: 8px 0;
+  font-size: clamp(30px, 5vw, 56px);
+  line-height: .98;
+}
+
+.flow-panel h2 {
+  margin: 8px 0;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1;
+}
+
+.flow-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--fw-metal);
+  font-weight: 900;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.flow-panel summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-panel summary small,
+.section-heading small {
+  color: var(--fw-muted);
+  font-weight: 850;
+}
+
+.flow-panel[open] summary {
+  margin-bottom: 14px;
+}
+
+.passport-preview.empty strong {
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.official-golf.empty strong {
+  font-size: clamp(26px, 5vw, 38px);
+  line-height: 1.05;
+}
+
+.club-metric {
+  display: grid;
+  gap: 12px;
+}
+
+.club-metric-head {
+  display: grid;
+  gap: 4px;
+}
+
+.club-metric-head span {
+  display: block;
+}
+
+.metric-lead {
+  border: 1px solid var(--fw-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbf7ed;
+}
+
+.metric-lead strong {
+  display: block;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--fw-green);
+}
+
+.metric-lead span {
+  display: block;
+  margin-top: 5px;
+  color: var(--fw-muted);
+  font-weight: 850;
+}
+
+.panel-heading,
+.operator-kicker,
+.operator-empty,
+.operator-suite small,
+.operator-reservation small,
+.selected-context span,
+.facilities-header p,
+.task-card span,
+.task-card dt,
+.facility-suite-row small,
+.facility-suite-row span,
+.all-ready span {
+  color: #4f5b53;
+}
+
+.task-card-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.task-card-heading strong,
+.task-card-heading span {
+  display: block;
+}
+
+.selected-context em {
+  color: #6f541d;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.selected-context.context-warning {
+  border-color: #b9964a;
+  background: #fff8df;
+}
+
+@media (max-width: 900px) {
+  .member-context {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .member-summary {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 540px) {
+  .member-context h1 {
+    font-size: 32px;
+  }
+  .member-context p {
+    font-size: 14px;
+  }
+  .member-summary span {
+    min-height: 30px;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .play-now-card h2,
+  .passport-hero h2 {
+    font-size: 36px;
+  }
+  .flow-panel h2 {
+    font-size: 30px;
+  }
+}

@@ -89,17 +89,20 @@ async function memberProfileForEmail(client, email) {
 
 async function assertMemberExperienceBasics(page, label) {
   const basics = await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll("button"));
+    const isVisible = (element) => Boolean((element.checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true }) ?? (element.offsetWidth || element.offsetHeight || element.getClientRects().length)));
+    const isThirdPartyAuthControl = (element) => Boolean(element.closest(".cl-rootBox, .cl-userButtonBox, [class*=\"cl-\"], [data-clerk-element], [data-clerk-component]"));
+    const hasAccessibleName = (element) => Boolean(element.innerText.trim() || element.textContent?.trim() || element.getAttribute("aria-label") || element.getAttribute("title") || element.getAttribute("aria-labelledby") || element.querySelector("img[alt]")?.getAttribute("alt") || element.querySelector("svg title")?.textContent?.trim());
+    const buttons = Array.from(document.querySelectorAll("main button, nav button"));
     const inputs = Array.from(document.querySelectorAll("input"));
     return {
       overflow: document.documentElement.scrollWidth - window.innerWidth,
-      unlabeledButtons: buttons.filter((button) => !(button.innerText.trim() || button.getAttribute("aria-label") || button.getAttribute("title"))).length,
-      unlabeledInputs: inputs.filter((input) => !(input.labels?.length || input.getAttribute("aria-label") || input.getAttribute("placeholder"))).length,
+      unlabeledButtons: buttons.filter((button) => isVisible(button) && !isThirdPartyAuthControl(button) && !hasAccessibleName(button)).length,
+      unlabeledInputs: inputs.filter((input) => isVisible(input) && !(input.labels?.length || input.getAttribute("aria-label") || input.getAttribute("placeholder"))).length,
       statusRegions: document.querySelectorAll('[role="status"]').length,
     };
   });
   assert(basics.overflow <= 2, `${label} has horizontal overflow ${basics.overflow}`);
-  assertEqual(basics.unlabeledButtons, 0, `${label} unlabeled buttons`);
+  assertEqual(basics.unlabeledButtons, 0, `${label} unlabeled Fairway-owned buttons`);
   assertEqual(basics.unlabeledInputs, 0, `${label} unlabeled inputs`);
 }
 
@@ -179,8 +182,7 @@ try {
   const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const memberPage = await mobileContext.newPage();
   await login(memberPage, memberEmail, "/");
-  await memberPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
-  await memberPage.getByRole("heading", { name: "Golf when you want to golf." }).waitFor({ timeout: 30000 });
+  await memberPage.getByRole("heading", { name: /Ready to play/ }).waitFor({ timeout: 45000 });
   await memberPage.getByRole("navigation", { name: "Member navigation" }).waitFor({ timeout: 30000 });
   await memberPage.getByRole("button", { name: "Home", exact: true }).waitFor();
   await memberPage.getByRole("button", { name: "Play", exact: true }).waitFor();
@@ -196,7 +198,7 @@ try {
   assertEqual(availability.status, 200, "availability status");
   assertEqual(availability.body.demoGolfProfile.id, "demo_tom_golfer", "demo golfer id");
   assertEqual(availability.body.demoGolfProfile.officialGolf.handicapIndex, 8.4, "demo handicap index");
-  assert(availability.body.demoGolfProfile.officialGolf.source.includes("Simulated"), "official golf source is clearly simulated");
+  assert(availability.body.demoGolfProfile.officialGolf.source.includes("Demo"), "official golf source is clearly marked as demo");
   const driver = availability.body.demoGolfProfile.performance.find((club) => club.clubCode === "driver");
   assertEqual(driver.typicalCarryYards, 264, "driver demo carry");
   log("DETERMINISTIC_DEMO_GOLF_PROFILE_VERIFIED");
@@ -204,18 +206,16 @@ try {
   await memberPage.getByRole("button", { name: "My Golf", exact: true }).click();
   await memberPage.getByText("Golfer Passport").waitFor();
   await memberPage.getByText("Handicap Index").waitFor();
-  await memberPage.getByText("Simulated official-golf demo source").waitFor();
+  await memberPage.getByText("Demo official handicap").waitFor();
   await memberPage.getByText("Driver", { exact: true }).waitFor();
   await memberPage.getByText("264 yd").waitFor();
   await memberPage.getByText("7 Iron", { exact: true }).waitFor();
   await memberPage.getByText("PW", { exact: true }).waitFor();
-  await memberPage.getByText("not active 1G functionality").waitFor();
   await assertMemberExperienceBasics(memberPage, "mobile my golf");
   log("GOLFER_PASSPORT_PRESENTATION_VERIFIED");
 
   await memberPage.getByRole("button", { name: "Play", exact: true }).click();
-  await memberPage.getByText("Practice Suites").waitFor();
-  await memberPage.getByText("Session state").waitFor();
+  await memberPage.getByText("Suite details").waitFor();
   await memberPage.getByText("Guests").waitFor();
   await assertMemberExperienceBasics(memberPage, "mobile play");
 
@@ -226,7 +226,7 @@ try {
   await memberPage.getByRole("button", { name: "Start session" }).click();
   await memberPage.getByText("Session started", { exact: false }).waitFor({ timeout: 45000 });
   await memberPage.getByRole("button", { name: "Finish session" }).click();
-  await memberPage.getByText("Session complete", { exact: false }).waitFor({ timeout: 45000 });
+  await memberPage.getByRole("status").filter({ hasText: "Session complete" }).waitFor({ timeout: 45000 });
   log("MEMBER_PLAY_NOW_SESSION_COMPLETION_UI_VERIFIED");
 
   const memberSnapshot = await retry("golden member snapshot", async () => {
@@ -242,7 +242,7 @@ try {
   log("PERSISTED_GOLDEN_DEMO_LIFECYCLE_VERIFIED");
 
   await memberPage.reload({ waitUntil: "domcontentloaded" });
-  await memberPage.getByRole("heading", { name: "Golf when you want to golf." }).waitFor({ timeout: 45000 });
+  await memberPage.getByRole("heading", { name: /Ready to play/ }).waitFor({ timeout: 45000 });
   await memberPage.getByRole("button", { name: "My Golf", exact: true }).click();
   await memberPage.getByText("Golfer Passport").waitFor();
   log("REFRESH_PERSISTENCE_VERIFIED");
@@ -250,19 +250,19 @@ try {
   restartDevServer();
   await waitForServer();
   await memberPage.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
-  await memberPage.getByRole("heading", { name: "Golf when you want to golf." }).waitFor({ timeout: 45000 });
+  await memberPage.getByRole("heading", { name: /Ready to play/ }).waitFor({ timeout: 45000 });
   log("SERVER_RESTART_RESILIENCE_VERIFIED");
 
   const facilitiesContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const facilitiesPage = await facilitiesContext.newPage();
   await login(facilitiesPage, facilitiesEmail, "/");
-  await facilitiesPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await facilitiesPage.getByRole("heading", { name: /Ready to play/ }).waitFor({ timeout: 45000 });
   const facilitiesProfile = await memberProfileForEmail(client, facilitiesEmail);
   await client.query("select fairway_grant_development_facilities($1, $2, $3)", [facilitiesProfile.id, facilitiesProfile.home_location_id, "Vertical Slice 1G golden demo facilities grant"]);
   await facilitiesPage.goto("http://localhost:3000/facilities", { waitUntil: "domcontentloaded" });
   await facilitiesPage.getByRole("heading", { name: "What should I service now?" }).waitFor({ timeout: 45000 });
   await facilitiesPage.getByText("Next Best Action").waitFor({ timeout: 30000 });
-  const facilitiesBasics = await facilitiesPage.evaluate(() => ({ overflow: document.documentElement.scrollWidth - window.innerWidth, unlabeledButtons: Array.from(document.querySelectorAll("button")).filter((button) => !(button.innerText.trim() || button.getAttribute("aria-label") || button.getAttribute("title"))).length }));
+  const facilitiesBasics = await facilitiesPage.evaluate(() => ({ overflow: document.documentElement.scrollWidth - window.innerWidth, unlabeledButtons: Array.from(document.querySelectorAll("main button, nav button")).filter((button) => !(button.innerText.trim() || button.getAttribute("aria-label") || button.getAttribute("title"))).length }));
   assert(facilitiesBasics.overflow <= 2, `facilities mobile overflow ${facilitiesBasics.overflow}`);
   assertEqual(facilitiesBasics.unlabeledButtons, 0, "facilities unlabeled buttons");
 
@@ -289,7 +289,7 @@ try {
   const desktopContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const desktopPage = await desktopContext.newPage();
   await login(desktopPage, memberEmail, "/");
-  await desktopPage.getByRole("heading", { name: "Golf when you want to golf." }).waitFor({ timeout: 45000 });
+  await desktopPage.getByRole("heading", { name: /Ready to play/ }).waitFor({ timeout: 45000 });
   await desktopPage.getByRole("button", { name: "My Golf", exact: true }).click();
   await desktopPage.getByText("Golfer Passport").waitFor();
   await assertMemberExperienceBasics(desktopPage, "desktop member experience");

@@ -6,7 +6,7 @@ import { captureScreen, expectResponsiveBasics, flushQualityCapture, runA11y, st
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.1 persona state gallery", () => {
+test.describe("VS1G.2 persona state gallery", () => {
   test("captures member experience states across coherent personae", async ({ browser }, testInfo) => {
     let context = await browser.newContext();
     let page = await context.newPage();
@@ -45,10 +45,10 @@ test.describe("VS1G.1 persona state gallery", () => {
       await ensureTourPlanForProfile(client, powerProfile.memberProfileId);
       await setCreditTarget(client, powerProfile.memberProfileId, 240, "Experience QA target for power-tour-member");
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.getByText("Tour membership")).toBeVisible();
+      await expect(page.getByText("240 credits")).toBeVisible();
       await page.getByRole("button", { name: "My Golf", exact: true }).click();
       await expect(page.getByText("281 yd")).toBeVisible();
-      await expect(page.getByText("118 demo shots")).toBeVisible();
+      await expect(page.getByText("118 swings", { exact: true })).toBeVisible();
       await expectResponsiveBasics(page, "power tour My Golf");
       await captureScreen(page, testInfo, {
         order: 12,
@@ -70,12 +70,12 @@ test.describe("VS1G.1 persona state gallery", () => {
       await bootstrapPersona(page, client, guestHost);
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await page.getByRole("button", { name: /Book/i }).first().click();
-      await page.getByText(/You're booked/i).waitFor({ timeout: 45_000 });
+      await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 45_000 });
       await page.getByLabel("Guest name").fill("Casey Guest");
       await page.getByLabel("Guest email optional").fill("casey-ux@example.com");
       await page.getByRole("button", { name: /Add guest/i }).click();
-      await page.getByText(/waiver still needs/i).waitFor({ timeout: 30_000 });
-      await expect(page.getByRole("button", { name: /Request/i }).first()).toBeVisible();
+      await page.getByText(/waiver needs/i).waitFor({ timeout: 30_000 });
+      await expect(page.getByRole("button", { name: /Request waiver/i }).first()).toBeVisible();
       await captureScreen(page, testInfo, {
         order: 13,
         screen: "guest-waiver-pending",
@@ -86,9 +86,9 @@ test.describe("VS1G.1 persona state gallery", () => {
         principles: ["human-state-language", "clear-system-status"],
         capability: "Guest workflow distinguishes added, waiver pending, and readiness status.",
       });
-      await page.getByRole("button", { name: /Request/i }).first().click();
+      await page.getByRole("button", { name: /Request waiver/i }).first().click();
       await page.getByText(/Waiver request recorded/i).waitFor({ timeout: 30_000 });
-      await page.getByRole("button", { name: /Complete/i }).first().click();
+      await page.getByRole("button", { name: /Mark complete/i }).first().click();
       await page.getByText(/Waiver complete/i).waitFor({ timeout: 30_000 });
       await captureScreen(page, testInfo, {
         order: 14,
@@ -126,8 +126,7 @@ test.describe("VS1G.1 persona state gallery", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await expect(page.getByText("0 credits")).toBeVisible();
-      await expect(page.getByText("Reserve protected time")).toBeVisible();
-      await expect(page.getByText("Not ready").first()).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Reserve the next safe slot" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Play Now" }).first()).toBeDisabled();
       await runA11y(page, testInfo, "Constrained Play", constrained.key);
       await captureScreen(page, testInfo, {

@@ -33,7 +33,7 @@ const summary = buildSummary(playwrightResults, screenshotManifest, accessibilit
 writeFileSync(path.join(staging, "00-README-FIRST.md"), reviewReadme({ commitSha, branch, timestamp, summary }));
 writeJson(path.join(staging, "manifest.json"), {
   project: "Fairway Network",
-  slice: "VS1G.1 Experience QA Harness & Product Acceptance Infrastructure",
+  slice: "VS1G.2 Product Acceptance Remediation Round 1",
   commitSha,
   branch,
   dlsVersion: "0.1",
@@ -84,7 +84,9 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
     return acc;
   }, {});
   const consoleErrors = qualityEntries.reduce((sum, entry) => sum + (entry.consoleErrors?.length ?? 0), 0);
-  const failedRequests = qualityEntries.reduce((sum, entry) => sum + (entry.failedRequests?.length ?? 0), 0);
+  const expectedConsoleMessages = qualityEntries.reduce((sum, entry) => sum + (entry.expectedConsoleMessages?.length ?? 0), 0);
+  const expectedRequestCancellations = qualityEntries.reduce((sum, entry) => sum + (entry.expectedRequestCancellations?.length ?? 0), 0);
+  const unexpectedNetworkFailures = qualityEntries.reduce((sum, entry) => sum + ((entry.unexpectedNetworkFailures ?? entry.failedRequests)?.length ?? 0), 0);
   return {
     goldenDemoFunctionalResult: tests.unexpected === 0 ? "passed" : "failed",
     facilitiesGoldenDemoResult: tests.unexpected === 0 ? "passed" : "failed",
@@ -93,7 +95,9 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
     accessibilityFindingCountsBySeverity: bySeverity,
     accessibilityScreenCount: a11y.length,
     consoleErrorCount: consoleErrors,
-    unexpectedNetworkErrorCount: failedRequests,
+    expectedConsoleMessageCount: expectedConsoleMessages,
+    expectedRequestCancellationCount: expectedRequestCancellations,
+    unexpectedNetworkFailureCount: unexpectedNetworkFailures,
     screenshotGenerationResult: screenshots.length > 0 ? "passed" : "no screenshots generated",
     screenshotCount: screenshots.length,
     totalTests: tests.expected ?? null,
@@ -103,7 +107,7 @@ function buildSummary(results, screenshots, a11y, qualityEntries) {
 }
 
 function reviewReadme({ commitSha, branch, timestamp, summary }) {
-  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: VS1G.1 - Experience QA Harness & Product Acceptance Infrastructure\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate whether the VS1G member and facilities experience feels like one intentional, premium, mobile-first Fairway product before new product scope is layered on.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Uses Play Now.\n3. Sees suite, credit, access, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees completion feedback.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
+  return `# Fairway UX Review Bundle\n\nProject: Fairway Network\nSlice: VS1G.2 - Product Acceptance Remediation Round 1\nCommit SHA: ${commitSha}\nBranch: ${branch}\nDLS Version: 0.1\nGenerated: ${timestamp}\nProduct Acceptance: PENDING HUMAN REVIEW\n\n## Primary Review Objective\nEvaluate the first Product Acceptance remediation pass for VS1G, including Facilities action integrity, mobile hierarchy, member copy, accessibility contrast, and production-like review evidence.\n\n## Golden Demo Sequence\n1. demo-active-birdie opens Member Home.\n2. Uses Play Now.\n3. Sees suite, credit, access, and active session state.\n4. Reviews My Golf / Golfer Passport demo data.\n5. Completes the session and sees completion feedback.\n6. facilities-user opens Cleaning Mode.\n7. Claims, starts, and completes the turnover task.\n8. Suite returns to ready inventory.\n\n## Personas Included\n- demo-active-birdie\n- new-golfer\n- power-tour-member\n- guest-host-member\n- constrained-member\n- facilities-user\n\n## Known Intentionally Deferred Features\nCompetition, Tour Stop, Who Needs a Fourth, real GHIN, real Uneekor ingestion, real Stripe, real Kisi, real waiver provider, smart waitlist, native apps, and broad UI redesign are out of scope.\n\n## Known Limitations\nAutomated accessibility checks are evidence, not certification. Visual baselines are not approved until human Product Acceptance. Authenticated Playwright trace ZIPs are retained locally on failure but excluded from this shareable ZIP because they can contain session tokens.\n\n## Automated Summary\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n`;
 }
 
 function copySourceSnapshot() {
@@ -122,9 +126,11 @@ function assertNoSecrets(root) {
   if (forbidden.length) throw new Error(`Forbidden secret-bearing paths staged: ${forbidden.map((file) => path.relative(root, file)).join(", ")}`);
   const suspicious = [];
   for (const file of files) {
+    const relative = path.relative(root, file).replaceAll("\\", "/");
+    if (relative === "source/scripts/ux-review-bundle.mjs") continue;
     if (!isTextLike(file)) continue;
     const content = readFileSync(file, "utf8");
-    if (/sk_(?:test|live)_[A-Za-z0-9_-]+/.test(content) || /whsec_[A-Za-z0-9_-]+/.test(content) || /service_role["'\s:=]+eyJ/i.test(content)) suspicious.push(path.relative(root, file));
+    if (/sk_(?:test|live)_[A-Za-z0-9_-]+/.test(content) || /whsec_[A-Za-z0-9_-]+/.test(content) || /service_role["'\s:=]+eyJ/i.test(content) || /__clerk_db_jwt=(?!\[redacted\])[^&\s]+/i.test(content) || /\b(?:dvb|sess)_[A-Za-z0-9_-]+\b/.test(content)) suspicious.push(path.relative(root, file));
   }
   if (suspicious.length) throw new Error(`Potential secrets detected in staged review bundle: ${suspicious.join(", ")}`);
 }

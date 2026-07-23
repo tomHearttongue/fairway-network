@@ -157,7 +157,7 @@ try {
   log("BOOTSTRAP_AND_RESERVATION_RETRIEVAL_VERIFIED");
 
   await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
+  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
   await page.getByText("Booked ahead").first().waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: /Cancel/i }).first().click();
   await page.getByText(/Reservation cancelled/i).waitFor({ timeout: 30000 });
@@ -173,7 +173,7 @@ try {
   log("IDEMPOTENT_CANCEL_RETRY_VERIFIED");
 
   await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
+  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
   const secondAdvance = (await dbSnapshot(client, email, user.id, keys)).reservationRows.find((row) => row.status === "confirmed" && row.mode === "ADVANCE");
   const concurrentCancel = await page.evaluate(async (reservationId) => {
     const [a, b] = await Promise.all([
@@ -229,7 +229,7 @@ try {
     await login(restartPage, email);
     assertEqual(await visibleCredits(restartPage), 123, "credits after dev server restart");
     await restartPage.getByRole("button", { name: "Play", exact: true }).click();
-    await restartPage.getByText("History", { exact: true }).waitFor({ timeout: 30000 });
+    await restartPage.getByText("Recent activity", { exact: true }).waitFor({ timeout: 30000 });
   } finally {
     await browserAfterRestart.close();
   }

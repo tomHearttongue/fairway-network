@@ -6,7 +6,7 @@ import { captureScreen, expectResponsiveBasics, flushQualityCapture, runA11y, st
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.1 Golden Demo experience", () => {
+test.describe("VS1G.2 Golden Demo experience", () => {
   test("member golden demo and facilities turnover restoration", async ({ browser }, testInfo) => {
     const memberContext = await browser.newContext();
     const page = await memberContext.newPage();
@@ -16,10 +16,10 @@ test.describe("VS1G.1 Golden Demo experience", () => {
       await resetHarnessFacilityState(client);
       const active = PERSONAS["demo-active-birdie"];
       const activeProfile = await bootstrapPersona(page, client, active);
-      await setCreditTarget(client, activeProfile.memberProfileId, 122, "Experience QA target for demo-active-birdie");
+      await setCreditTarget(client, activeProfile.memberProfileId, 24, "Experience QA target for demo-active-birdie");
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.getByRole("heading", { name: "Golf when you want to golf." }).waitFor();
-      await expect(page.getByText("122 credits")).toBeVisible();
+      await page.getByRole("heading", { name: /Ready to play/ }).waitFor();
+      await expect(page.getByText("24 credits")).toBeVisible();
       await expect(page.getByRole("button", { name: "Play Now" }).first()).toBeEnabled();
       await expectResponsiveBasics(page, "member home");
       await runA11y(page, testInfo, "Member Home", active.key);
@@ -35,7 +35,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
       });
 
       await page.getByRole("button", { name: "Play", exact: true }).click();
-      await page.getByText("Practice Suites").waitFor();
+      await page.getByText("Suite details").waitFor();
       await expectResponsiveBasics(page, "play now surface");
       await runA11y(page, testInfo, "Play Now", active.key);
       await captureScreen(page, testInfo, {
@@ -46,7 +46,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
         state: "eligible-before-booking",
         prdRequirementIds: ["FR-UX-013", "FR-RES-001", "FR-ACC-001"],
         principles: ["action-before-navigation", "human-state-language", "clear-system-status"],
-        capability: "Member can understand duration, credit cost, suite availability, and turnover protection.",
+        capability: "Member can understand duration, credit prerequisites, suite availability, and turnover protection.",
       });
 
       await page.getByRole("button", { name: "Play Now" }).first().click();
@@ -59,7 +59,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
         state: "reservation-confirmed-access-scheduled",
         prdRequirementIds: ["FR-RES-003", "FR-ACC-003", "FR-UX-013"],
         principles: ["clear-system-status", "calm-confidence"],
-        capability: "Reservation, suite assignment, credit commit, and simulated access grant are visible after Play Now.",
+        capability: "Reservation, suite assignment, credit commit, and access timing is visible after Play Now.",
       });
 
       await page.getByRole("button", { name: "Start session" }).click();
@@ -79,7 +79,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
 
       await page.getByRole("button", { name: "My Golf", exact: true }).click();
       await page.getByText("Golfer Passport").waitFor();
-      await expect(page.getByText("Simulated official-golf demo source")).toBeVisible();
+      await expect(page.getByText("Demo official handicap")).toBeVisible();
       await expect(page.getByText("Driver", { exact: true })).toBeVisible();
       await expect(page.getByText("264 yd").first()).toBeVisible();
       await runA11y(page, testInfo, "My Golf", active.key);
@@ -91,24 +91,14 @@ test.describe("VS1G.1 Golden Demo experience", () => {
         state: "established-demo-baselines",
         prdRequirementIds: ["FR-CMP-010", "FR-CMP-011", "FR-CMP-012"],
         principles: ["data-with-meaning", "progressive-disclosure"],
-        capability: "Golfer Passport presents official-golf provenance and Fairway-owned performance baselines.",
-      });
-      await captureScreen(page, testInfo, {
-        order: 6,
-        screen: "driver-baseline",
-        route: "/",
-        persona: active.key,
-        state: "club-baseline-visible",
-        prdRequirementIds: ["FR-CMP-012"],
-        principles: ["data-with-meaning"],
-        capability: "Driver baseline is visible as provider-agnostic demo data, not live Uneekor truth.",
+        capability: "Golfer Passport presents official-golf provenance and Fairway performance baselines.",
       });
 
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await page.getByRole("button", { name: "Finish session" }).click();
-      await page.getByText(/Session complete/i).waitFor({ timeout: 45_000 });
+      await page.getByRole("status").filter({ hasText: /Session complete/i }).waitFor({ timeout: 45_000 });
       await captureScreen(page, testInfo, {
-        order: 7,
+        order: 6,
         screen: "session-summary",
         route: "/",
         persona: active.key,
@@ -139,7 +129,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
       await expectResponsiveBasics(facilitiesPage, "facilities queue");
       await runA11y(facilitiesPage, testInfo, "Facilities Queue", facilities.key);
       await captureScreen(facilitiesPage, testInfo, {
-        order: 8,
+        order: 7,
         screen: "facilities-queue",
         route: "/facilities",
         persona: facilities.key,
@@ -155,7 +145,7 @@ test.describe("VS1G.1 Golden Demo experience", () => {
       await nextTask.getByRole("button", { name: /Start/i }).click();
       await facilitiesPage.getByText(/started/i).first().waitFor({ timeout: 30_000 });
       await captureScreen(facilitiesPage, testInfo, {
-        order: 9,
+        order: 8,
         screen: "turnover-task",
         route: "/facilities",
         persona: facilities.key,
@@ -165,10 +155,10 @@ test.describe("VS1G.1 Golden Demo experience", () => {
         capability: "Facilities task can be claimed and started with obvious status feedback.",
       });
 
-      await nextTask.getByRole("button", { name: /Complete/i }).click();
+      await nextTask.getByRole("button", { name: /Mark ready/i }).click();
       await facilitiesPage.getByText("All suites are ready").first().waitFor({ timeout: 30_000 });
       await captureScreen(facilitiesPage, testInfo, {
-        order: 10,
+        order: 9,
         screen: "suite-ready",
         route: "/facilities",
         persona: facilities.key,

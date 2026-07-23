@@ -97,3 +97,12 @@ One Fairway language, different jobs:
 - Facilities: task-first, privacy-limited, fast to decide what to service next.
 
 Consistency should come from tokens, state language, and interaction quality, not identical layouts.
+## VS1G.2 Product Acceptance Remediation Notes
+
+DLS v0.1 retains the neo-modern-Masters-chic direction, with the following token refinements established during Product Acceptance remediation round 1:
+
+- Accessible muted text should use `#4f5b53` or a validated darker equivalent on cream, blue, clay, and paper surfaces.
+- Brass/gold has two roles: decorative accent may remain restrained, while readable brass text should use `#6f541d` or a validated darker equivalent.
+- Authenticated member screens should use compact product context rather than repeating landing-page hero scale.
+- Product review screenshots should use viewport captures as the primary acceptance evidence so fixed navigation and first-viewport hierarchy are judged accurately.
+- Facilities task surfaces must make the acting suite unmistakable, especially when notes, inspection escalation, and lifecycle actions are near each other.

@@ -206,6 +206,7 @@ Broadmoor/Mission may be a reference or build-like location candidate only. The 
 | FR-UX-015 | Fairway Experience QA must provide deterministic Playwright evidence for functional browser coverage, screenshots, accessibility scans, console/network quality, and failure artifacts before subjective Product Acceptance. | LOCKED | product type | Implemented VS1G.1 via `pnpm ux:qa`. |
 | FR-UX-016 | Product review evidence must use coherent Fairway personae rather than generic logged-in users. | LOCKED | product type/member/operator | Implemented VS1G.1 for demo-active-birdie, new-golfer, power-tour-member, guest-host-member, constrained-member, and facilities-user. |
 | FR-UX-017 | UX review bundles must be self-contained, secret-safe, and mark Product Acceptance as `PENDING HUMAN REVIEW` until Tom explicitly accepts the reviewed evidence. | LOCKED | product type/security | Implemented VS1G.1 via `pnpm ux:review:bundle` and product-acceptance docs. |
+| FR-UX-018 | Product Acceptance remediation must preserve simple golfer-facing UX while fixing review findings through state-driven actions, honest demo/provenance copy, viewport-first evidence, and production-like review runtime. | LOCKED | product type/member/facilities | Implemented VS1G.2 remediation round 1. |
 
 ## 6. Business Policies And Rules
 
@@ -382,6 +383,7 @@ Open questions / unresolved:
 | VS1F guest & waiver foundation | PP-DATA-001, PP-DATA-002, FR-GST-001 through FR-GST-010, FR-ACC-005, FR-UX-008, NFR-008 through NFR-010, BP-012 through BP-015 | Implemented. Verified by `pnpm verify:vs1f`, `tests/domains/guests.test.ts`, data contract docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1E regression verifiers. |
 | VS1G Fairway experience foundation & Golden Demo | PP-UX-001 through PP-UX-006, PP-DATA-001, FR-UX-009 through FR-UX-014, FR-CMP-010 through FR-CMP-012, NFR-008 through NFR-011 | Implemented. Verified by `pnpm verify:vs1g`, DLS/experience/data docs, `pnpm test`, `pnpm typecheck`, `pnpm build`, and VS1B-VS1F regression verifiers. Subjective product acceptance remains Tom review. |
 | VS1G.1 Experience QA harness & Product Acceptance infrastructure | PP-UX-006, FR-UX-015 through FR-UX-017, NFR-011 | Implemented. Verified by Playwright Experience QA (`pnpm ux:qa`), review bundle generation (`pnpm ux:review:bundle`), existing functional verifiers, and product-acceptance documentation. Subjective Product Acceptance remains pending human review. |
+| VS1G.2 Product Acceptance remediation round 1 | PP-UX-001 through PP-UX-006, FR-UX-011 through FR-UX-018, FR-FAC-007, FR-CMP-010 through FR-CMP-012, NFR-011 | Implemented. Verified by `pnpm ux:qa`, `pnpm ux:review:bundle`, functional verifiers, viewport screenshots, accessibility evidence, and production-like review runtime. Product Acceptance remains pending human review. |
 
 Every future vertical slice must update this traceability table before completion.
 

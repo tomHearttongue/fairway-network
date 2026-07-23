@@ -13,7 +13,7 @@ if (!webkitAvailable) {
 const projects: Project[] = [
   {
     name: "review-mobile-primary",
-    testMatch: /.*(golden-review|persona-gallery)\.spec\.ts/,
+    testMatch: /.*(sign-in-review|golden-review|persona-gallery)\.spec\.ts/,
     use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } },
   },
   {
@@ -28,7 +28,7 @@ const projects: Project[] = [
   },
   {
     name: "review-presentation",
-    testMatch: /.*golden-review\.spec\.ts/,
+    testMatch: /.*(sign-in-review|golden-review)\.spec\.ts/,
     use: { browserName: "chromium", viewport: { width: 1600, height: 900 } },
   },
   {

@@ -130,7 +130,7 @@ Golden demo persona:
 
 - Tom � Demo Golfer.
 - Birdie-style membership context.
-- 122 available demo credits.
+- 24 available credits for the Product Acceptance demo state.
 - Handicap Index 8.4 from simulated official-golf demo source.
 - Driver, 7 Iron, and PW baselines from canonical demo data.
 - Representative activity/session history.

@@ -15,3 +15,20 @@ Future record fields should include:
 - Required remediation for P0/P1 items, if any
 
 Do not mark VS1G Product Accepted until Tom explicitly approves it after reviewing evidence.
+## VS1G.2 Product Acceptance Remediation Round 1
+
+Status: PENDING HUMAN REVIEW
+
+Scope: remediation of P0/P1 findings from human Product Acceptance review of commit `2b6ee30cbf9755f4a8393306016eb59ce0ecb2a9`.
+
+Objective evidence added/updated:
+
+- Production-like Experience QA runtime: `next build` followed by `next start` before Playwright review.
+- Viewport-first Product Acceptance screenshots.
+- Sign-in mobile-primary and presentation screenshots.
+- Facilities task target integrity checks through state-driven Next Best Action flow.
+- Network evidence split into expected navigation cancellations and unexpected network failures.
+
+Known unresolved product gap:
+
+- Final production reservation/credit economics remain outside VS1G.2. The remediation avoids presenting clearly artificial pricing language where possible, but demand-band pricing, duration pricing, and final commercial booking economics require a future business/domain decision before investor-demo claims should imply final pricing.

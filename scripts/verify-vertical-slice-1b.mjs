@@ -167,14 +167,14 @@ try {
   });
 
   await login(page, email);
-  await page.getByText("Birdie membership").waitFor({ timeout: 30000 });
+  await page.getByText("Birdie").first().waitFor({ timeout: 30000 });
   assertEqual(await visibleCredits(page), 124, "initial visible credits");
   let snapshot = await dbSnapshot(client, email, user.id, keys);
   for (const [label, value] of Object.entries({ people: 1, authPrincipals: 1, profiles: 1, memberships: 1, monthlyGrants: 1, devGrants: 1, availableCredits: 124 })) assertEqual(snapshot[label], value, label);
   log("BOOTSTRAP_AND_INITIAL_CREDITS_VERIFIED");
 
   await page.getByRole("button", { name: /Book/i }).first().click();
-  await page.getByText(/You're booked/i).waitFor({ timeout: 30000 });
+  await page.getByText(/next safe slot is booked/i).waitFor({ timeout: 30000 });
   const advanceBody = reservationBodies.at(-1);
   const advanceRetry = await page.evaluate(async (body) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });

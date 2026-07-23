@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
+﻿import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 
 const repoRoot = process.cwd();
@@ -8,7 +8,8 @@ const env = { ...process.env, NODE_OPTIONS: appendNodeOption(process.env.NODE_OP
 rmSync("artifacts/playwright", { recursive: true, force: true });
 mkdirSync("artifacts/playwright", { recursive: true });
 await stopPort3000();
-startDevServer();
+buildApplication();
+startProductionServer();
 let exitCode = 1;
 try {
   await waitForServer();
@@ -19,10 +20,15 @@ try {
 }
 process.exit(exitCode);
 
-function startDevServer() {
+function buildApplication() {
+  const result = spawnSync(pnpm, ["build"], { cwd: repoRoot, env, stdio: "inherit", windowsHide: true, shell: true });
+  if ((result.status ?? 1) !== 0) process.exit(result.status ?? 1);
+}
+
+function startProductionServer() {
   const ps = `
     $env:NODE_OPTIONS='--use-system-ca'
-    Start-Process -FilePath '${pnpm}' -ArgumentList 'dev' -WorkingDirectory '${repoRoot.replaceAll("'", "''")}' -WindowStyle Hidden -RedirectStandardOutput '${repoRoot.replaceAll("'", "''")}\\artifacts\\playwright\\next-dev.out.log' -RedirectStandardError '${repoRoot.replaceAll("'", "''")}\\artifacts\\playwright\\next-dev.err.log'
+    Start-Process -FilePath '${pnpm}' -ArgumentList 'start' -WorkingDirectory '${repoRoot.replaceAll("'", "''")}' -WindowStyle Hidden -RedirectStandardOutput '${repoRoot.replaceAll("'", "''")}\\artifacts\\playwright\\next-start.out.log' -RedirectStandardError '${repoRoot.replaceAll("'", "''")}\\artifacts\\playwright\\next-start.err.log'
   `;
   execFileSync("powershell.exe", ["-NoProfile", "-Command", ps], { stdio: "ignore" });
 }
@@ -44,7 +50,7 @@ async function waitForServer() {
     }
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
-  throw new Error(`Next dev server did not start: ${lastError?.message ?? lastError}`);
+  throw new Error(`Next production server did not start: ${lastError?.message ?? lastError}`);
 }
 
 async function stopPort3000() {

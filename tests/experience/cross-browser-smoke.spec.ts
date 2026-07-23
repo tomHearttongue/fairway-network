@@ -6,20 +6,20 @@ import { expectResponsiveBasics, flushQualityCapture, startQualityCapture, write
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
 
-test.describe("VS1G.1 cross-browser smoke", () => {
+test.describe("VS1G.2 cross-browser smoke", () => {
   test("member IA and My Golf render across browser engines", async ({ page, browserName }, testInfo) => {
     const quality = startQualityCapture(page);
     const client = await connectDb(env);
     try {
       if (browserName === "chromium") await resetHarnessFacilityState(client);
       await bootstrapPersona(page, client, PERSONAS["demo-active-birdie"]);
-      await page.getByRole("heading", { name: "Golf when you want to golf." }).waitFor();
+      await page.getByRole("heading", { name: /Ready to play/ }).waitFor();
       await expect(page.getByRole("button", { name: "Home", exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: "My Golf", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "My Golf", exact: true }).click();
       await expect(page.getByText("Golfer Passport")).toBeVisible();
-      await expect(page.getByText("Simulated official-golf demo source")).toBeVisible();
+      await expect(page.getByText("Demo official handicap")).toBeVisible();
       await expectResponsiveBasics(page, `${browserName} member smoke`);
       writeReviewNote(`cross-browser-smoke-${testInfo.project.name}`, { project: testInfo.project.name, browserName, result: "passed", checks: ["member-home", "member-navigation", "my-golf-provenance", "responsive-basics"] });
       flushQualityCapture(`${testInfo.project.name}-cross-browser-smoke`, quality);

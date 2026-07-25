@@ -50,7 +50,7 @@ export type QualityCapture = {
 export function startQualityCapture(page: Page, id: string): QualityCapture {
   const result: QualityCapture = { id, consoleErrors: [], expectedCancellations: [], unexpectedNetworkFailures: [] };
   const activeKnownRequests = new Map<string, Request>();
-  const supersededRequests = new WeakSet<Request>();
+  const supersededRequests = new WeakMap<Request, string>();
   page.on("console", (message) => {
     if (message.type() === "error") result.consoleErrors.push({ text: sanitize(message.text()), location: sanitize(message.location().url) });
   });
@@ -58,7 +58,7 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
     const key = knownRefreshKey(request);
     if (key) {
       const previous = activeKnownRequests.get(key);
-      if (previous) supersededRequests.add(previous);
+      if (previous) supersededRequests.set(previous, sanitize(request.url()));
       activeKnownRequests.set(key, request);
     }
   });
@@ -68,18 +68,13 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
     const item = { url: sanitize(request.url()), failure };
     const browserCancellation = /\b(?:ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT)\b/i.test(failure);
     const localReviewOrigin = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\//.test(request.url());
-    const documentNavigation = request.isNavigationRequest() || request.resourceType() === "document";
-    const supersededRefresh = supersededRequests.has(request) && Boolean(knownRefreshKey(request));
-    if (browserCancellation && localReviewOrigin && (documentNavigation || supersededRefresh)) {
+    const supersedingRequest = supersededRequests.get(request);
+    if (browserCancellation && localReviewOrigin && supersedingRequest) {
       result.expectedCancellations.push({
         ...item,
-        category: documentNavigation ? "document-navigation" : "superseded-read-model-request",
-        initiatingAction: documentNavigation
-          ? `document navigation to ${sanitize(request.url())}`
-          : `newer canonical read-model request replaced ${sanitize(request.url())}`,
-        justification: documentNavigation
-          ? "Browser cancelled this local document request during a redirect or superseding navigation."
-          : "A newer request to the same known canonical read-model endpoint superseded this local request.",
+        category: "superseded-view-request",
+        initiatingAction: `newer request ${supersedingRequest}`,
+        justification: "A newer request for the same known local member or facilities view superseded this request.",
         observedAt: new Date().toISOString(),
       });
     } else {
@@ -96,8 +91,8 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
 function knownRefreshKey(request: Request): string | null {
   const url = new URL(request.url());
   if (!/^https?:$/.test(url.protocol) || !["localhost", "127.0.0.1"].includes(url.hostname)) return null;
-  if (/[?&]_rsc=/.test(request.url())) return `${url.pathname}:rsc`;
-  if (/^\/api\/(?:member\/availability|facilities\/state)$/.test(url.pathname)) return url.pathname;
+  if (url.pathname === "/" || url.pathname === "/api/member/availability") return "member-view";
+  if (url.pathname === "/facilities" || url.pathname === "/api/facilities/state") return "facilities-view";
   return null;
 }
 

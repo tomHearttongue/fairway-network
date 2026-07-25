@@ -427,7 +427,7 @@ async function captureGuestStates(browser: Browser, testInfo: TestInfo) {
   try {
     await loginPersona(page, PERSONAS["guest-host-member"], "/");
     await page.getByRole("button", { name: "Play", exact: true }).click();
-    await expect(page.getByText("Guests", { exact: true })).toBeVisible();
+    await expect(page.locator(".guest-flow .section-heading").getByText("Guests", { exact: true })).toBeVisible();
 
     await selectReservationBySuite(page, "Practice Suite 4");
     await expect(page.getByText("Waiting for waiver completion")).toBeVisible();

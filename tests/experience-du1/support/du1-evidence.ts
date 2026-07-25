@@ -5,35 +5,81 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FAIRWAY_DEMO_CLOCK_ISO, FAIRWAY_DEMO_UNIVERSE_SEED, FAIRWAY_DEMO_UNIVERSE_VERSION } from "@/demo-universe/universe";
 
-const root = path.join("artifacts", "du1-remediation-r2-review");
+const root = path.join("artifacts", "du1-remediation-r3-review");
+
+export type CaptureIdentity = {
+  captureId: string;
+  logicalStateId: string;
+  stepId: string;
+  stepNumber: number | null;
+};
 
 export type StructuredAssertion = {
   id: string;
+  evidenceType: "ui" | "state";
   sourcePath: string;
-  comparator: "equals" | "contains" | "count";
-  expected: string | number | boolean;
-  actual: string | number | boolean;
+  comparator: "equals" | "contains" | "count" | "absent";
+  expected: string | number | boolean | null;
+  actual: string | number | boolean | null;
+  locator?: {
+    kind: "testId" | "role" | "label" | "css";
+    value: string;
+    name?: string;
+  };
+  stateEvidence?: {
+    reconciliationPath: string;
+    queryId: string;
+  };
   passed: true;
 };
 
 export type QualityCapture = {
   id: string;
   consoleErrors: Array<{ text: string; location: string }>;
-  expectedCancellations: Array<{ url: string; failure: string }>;
+  expectedCancellations: Array<{
+    url: string;
+    failure: string;
+    category: string;
+    initiatingAction: string;
+    justification: string;
+    observedAt: string;
+  }>;
   unexpectedNetworkFailures: Array<{ url: string; failure: string }>;
 };
 
 export function startQualityCapture(page: Page, id: string): QualityCapture {
   const result: QualityCapture = { id, consoleErrors: [], expectedCancellations: [], unexpectedNetworkFailures: [] };
+  const navigationActions: Array<{ at: number; action: string }> = [];
   page.on("console", (message) => {
     if (message.type() === "error") result.consoleErrors.push({ text: sanitize(message.text()), location: sanitize(message.location().url) });
+  });
+  page.on("request", (request) => {
+    if (request.isNavigationRequest()) {
+      navigationActions.push({ at: Date.now(), action: `document navigation to ${sanitize(request.url())}` });
+      if (navigationActions.length > 20) navigationActions.shift();
+    }
   });
   page.on("requestfailed", (request) => {
     const failure = request.failure()?.errorText ?? "unknown";
     const item = { url: sanitize(request.url()), failure };
     const browserCancellation = /\b(?:ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT)\b/i.test(failure);
-    if (browserCancellation) result.expectedCancellations.push(item);
-    else result.unexpectedNetworkFailures.push(item);
+    const recentNavigation = [...navigationActions].reverse().find((action) => Date.now() - action.at <= 5_000);
+    const knownNavigationResource = request.isNavigationRequest()
+      || request.resourceType() === "document"
+      || /[?&]_rsc=/.test(request.url())
+      || /\/api\/member\/availability(?:\?|$)/.test(request.url());
+    const localReviewOrigin = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\//.test(request.url());
+    if (browserCancellation && recentNavigation && knownNavigationResource && localReviewOrigin) {
+      result.expectedCancellations.push({
+        ...item,
+        category: request.isNavigationRequest() || request.resourceType() === "document" ? "document-navigation" : "navigation-dependent-request",
+        initiatingAction: recentNavigation.action,
+        justification: "Browser cancelled a known document, RSC, or member-state request within five seconds of recorded navigation.",
+        observedAt: new Date().toISOString(),
+      });
+    } else {
+      result.unexpectedNetworkFailures.push(item);
+    }
   });
   page.on("response", (response) => {
     if (response.status() >= 400) result.unexpectedNetworkFailures.push({ url: sanitize(response.url()), failure: `HTTP ${response.status()}` });
@@ -57,6 +103,7 @@ export async function captureDu1Screen(page: Page, testInfo: TestInfo, input: {
   assertions: StructuredAssertion[];
   qualityCaptureId: string;
   accessibilityEvidenceId: string;
+  captureIdentity: CaptureIdentity;
 }): Promise<void> {
   expect(input.assertions.length, `${input.screen} structured assertions`).toBeGreaterThan(0);
   expect(input.assertions.every((assertion) => assertion.passed), `${input.screen} reconciliation assertions`).toBe(true);
@@ -82,6 +129,7 @@ export async function captureDu1Screen(page: Page, testInfo: TestInfo, input: {
     scenario: input.scenario,
     state: input.state,
     step: input.step,
+    ...input.captureIdentity,
     viewport,
     actualViewport,
     screenshotPixels: { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) },

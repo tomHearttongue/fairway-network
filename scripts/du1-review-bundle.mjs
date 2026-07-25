@@ -2,23 +2,24 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { summarizeCaptureIdentity, validateEvidenceAssertion } from "./du1-evidence-contract.mjs";
 
 const repoRoot = process.cwd();
 const git = process.env.FAIRWAY_GIT_EXECUTABLE ?? "git";
-const root = path.join(repoRoot, "artifacts", "du1-remediation-r2-review");
+const root = path.join(repoRoot, "artifacts", "du1-remediation-r3-review");
 const staging = path.join(root, "bundle-staging");
-const zipPath = path.join(root, "fairway-du1-remediation-r2-review.zip");
+const zipPath = path.join(root, "fairway-du1-remediation-r3-review.zip");
 const verifyRoot = path.join(root, "bundle-verify");
-const rejectedZip = path.join(repoRoot, "artifacts", "du1-remediation-review", "fairway-du1-remediation-review.zip");
-const rejectedZipSha256 = "0bd29d54815a203948036f0eef9d3a122e28c584ef9bb177c7b2966c7f11610f";
-const rejectedZipBytes = 1_060_877;
+const rejectedZip = path.join(repoRoot, "artifacts", "du1-remediation-r2-review", "fairway-du1-remediation-r2-review.zip");
+const rejectedZipSha256 = "b77f6adaadbe624de96eac6ce31ff1f2fe9fa690a22c3ec27998a9ac7e716de2";
+const rejectedZipBytes = 2_011_302;
 const scenarios = ["normal", "busy-prime", "new-member", "facility-incident", "low-inventory"];
 
 assertRejectedCandidateFrozen();
 assertCleanTrackedTree();
 const commitSha = gitText(["rev-parse", "HEAD"]);
 const branch = gitText(["branch", "--show-current"]);
-if (branch !== "du1/acceptance-remediation-r2") throw new Error(`Unexpected review branch: ${branch}`);
+if (branch !== "du1/acceptance-remediation-r3") throw new Error(`Unexpected review branch: ${branch}`);
 const generatedAt = new Date().toISOString();
 
 const screenshots = readJson(path.join(root, "evidence", "screenshot-manifest.json"));
@@ -44,7 +45,7 @@ copySanitizedGeneratedFile("playwright/results.json");
 const sourceSnapshot = writeSourceSnapshot(commitSha);
 writeJson(path.join(staging, "provenance.json"), {
   project: "Fairway Network",
-  slice: "DU1 Acceptance Remediation Round 2",
+  slice: "DU1 Acceptance Remediation Round 3",
   status: "PENDING HUMAN REVIEW",
   commitSha,
   branch,
@@ -52,7 +53,7 @@ writeJson(path.join(staging, "provenance.json"), {
   sourceSnapshot,
   universe: audit.universe,
   rejectedCandidate: {
-    commitSha: "57eeff15784a61b167b2209828a94ee9739807b9",
+    commitSha: "e8018a2b427740f34910e86fff47342065e35ffb",
     zipSha256: rejectedZipSha256,
     zipBytes: rejectedZipBytes,
     preserved: true,
@@ -61,9 +62,9 @@ writeJson(path.join(staging, "provenance.json"), {
 
 writeReportFiles(audit, evidenceSummary);
 const manifest = {
-  schemaVersion: "fairway-du1-r2-review-v1",
+  schemaVersion: "fairway-du1-r3-review-v1",
   project: "Fairway Network",
-  review: "DU1 Acceptance Remediation Round 2",
+  review: "DU1 Acceptance Remediation Round 3",
   status: "PENDING HUMAN REVIEW",
   commitSha,
   branch,
@@ -120,7 +121,7 @@ writeJson(path.join(root, "bundle-summary.json"), result);
 rmSync(verifyRoot, { recursive: true, force: true });
 assertRejectedCandidateFrozen();
 assertCleanTrackedTree();
-if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("HEAD changed while generating the DU1 R2 review package.");
+if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("HEAD changed while generating the DU1 R3 review package.");
 console.log(JSON.stringify(result, null, 2));
 
 function validateEvidence(input) {
@@ -132,7 +133,10 @@ function validateEvidence(input) {
   const accessibilityIds = new Set(input.accessibility.map((item) => item.id));
   const qualityIds = new Set(input.quality.map((item) => item.id));
   let structuredAssertionCount = 0;
+  let uiAssertionCount = 0;
+  let stateAssertionCount = 0;
   let brokenReconciliationPathCount = 0;
+  let missingRequiredAssertionCount = 0;
   for (const scenario of scenarios) {
     if (!input.screenshots.some((item) => item.scenario === scenario)) throw new Error(`Missing screenshot evidence for ${scenario}.`);
   }
@@ -143,6 +147,7 @@ function validateEvidence(input) {
       "universeVersion", "universeSeed", "universeFingerprint", "canonicalClockUtc",
       "canonicalClockLocal", "localTimezone", "resetExecutionId", "flowExecutionId",
       "reconciliationPath", "structuredAssertions", "qualityCaptureId", "accessibilityEvidenceId",
+      "captureId", "logicalStateId", "stepId", "stepNumber",
     ]) {
       if (item[field] === undefined || item[field] === null) throw new Error(`Screenshot ${item.file} lacks ${field}.`);
     }
@@ -166,9 +171,18 @@ function validateEvidence(input) {
       || reconciliation.fingerprint !== item.universeFingerprint
     ) throw new Error(`Screenshot reconciliation provenance mismatch: ${item.file}`);
     if (!Array.isArray(item.structuredAssertions) || item.structuredAssertions.length === 0) throw new Error(`Screenshot has no structured assertions: ${item.file}`);
-    if (item.structuredAssertions.some((assertion) => assertion.passed !== true || !assertion.id || !assertion.sourcePath || !assertion.comparator)) {
+    if (item.structuredAssertions.some((assertion) => assertion.passed !== true || !assertion.id || !assertion.sourcePath || !assertion.comparator || !assertion.evidenceType)) {
       throw new Error(`Screenshot has a non-executed or malformed assertion: ${item.file}`);
     }
+    for (const assertion of item.structuredAssertions) {
+      validateEvidenceAssertion(assertion, item);
+      if (assertion.evidenceType === "ui") {
+        uiAssertionCount += 1;
+      } else if (assertion.evidenceType === "state") {
+        stateAssertionCount += 1;
+      }
+    }
+    if (!item.structuredAssertions.some((assertion) => assertion.evidenceType === "ui")) throw new Error(`Screenshot lacks a locator-backed UI assertion: ${item.file}`);
     if (JSON.stringify(reconciliation.executedAssertions) !== JSON.stringify(item.structuredAssertions)) throw new Error(`Screenshot assertion/reconciliation mismatch: ${item.file}`);
     structuredAssertionCount += item.structuredAssertions.length;
     if (!accessibilityIds.has(item.accessibilityEvidenceId)) throw new Error(`Screenshot lacks linked accessibility evidence: ${item.file}`);
@@ -184,6 +198,14 @@ function validateEvidence(input) {
   }
   if (new Set(mobileSteps.map((item) => item.flowExecutionId)).size !== 1) throw new Error("Golden Demo steps do not share one flow execution ID.");
   if (new Set(mobileSteps.map((item) => item.resetExecutionId)).size !== 1) throw new Error("Golden Demo steps do not share one reset execution ID.");
+  for (const item of mobileSteps) {
+    const required = requiredAssertionIdsFor(item.stepId);
+    const present = new Set(item.structuredAssertions.map((assertion) => assertion.id));
+    for (const id of required) {
+      if (!present.has(id)) missingRequiredAssertionCount += 1;
+    }
+  }
+  if (missingRequiredAssertionCount) throw new Error(`Golden Demo is missing ${missingRequiredAssertionCount} required assertion IDs.`);
   const requiredStates = [
     "no-mature-history", "coherent-high-demand", "inventory-not-credit-constrained",
     "inspection-and-turnover-affect-availability", "guest-waiver-pending",
@@ -191,10 +213,18 @@ function validateEvidence(input) {
     "inventory-available-credit-confirmation-blocked",
   ];
   for (const state of requiredStates) if (!input.screenshots.some((item) => item.state === state)) throw new Error(`Required state evidence missing: ${state}`);
+  const captureSummary = summarizeCaptureIdentity(input.screenshots);
+  const { uniqueLogicalStates, viewportCounts } = captureSummary;
+  if (uniqueLogicalStates !== 24) throw new Error(`Expected 24 unique logical states, found ${uniqueLogicalStates}.`);
   return {
+    totalCaptures: input.screenshots.length,
     screenshots: input.screenshots.length,
-    uniqueLogicalStates: new Set(input.screenshots.map((item) => `${item.viewport}:${item.scenario}:${item.persona}:${item.state}`)).size,
+    uniqueLogicalStates,
+    viewportCounts,
     structuredAssertionCount,
+    uiAssertionCount,
+    stateAssertionCount,
+    missingRequiredAssertionCount,
     brokenReconciliationPathCount,
     goldenFlowExecutionId: mobileSteps[0].flowExecutionId,
     goldenResetExecutionId: mobileSteps[0].resetExecutionId,
@@ -203,6 +233,120 @@ function validateEvidence(input) {
     unexpectedNetworkFailureCount: input.quality.reduce((sum, item) => sum + item.unexpectedNetworkFailures.length, 0),
     expectedNavigationCancellationCount: input.quality.reduce((sum, item) => sum + item.expectedCancellations.length, 0),
   };
+}
+
+function requiredAssertionIdsFor(stepId) {
+  const requiredAssertionIds = {
+  "golden-01-member-home": [
+    "ui:member.displayName",
+    "ui:member.membershipPlanCode",
+    "ui:member.availableCredits",
+    "ui:playNowQuote.available",
+    "ui:playNowQuote.duration",
+    "ui:playNowQuote.cost",
+    "ui:futureReservation.suiteName",
+    "ui:futureReservation.startLabel",
+    "ui:futureReservation.accessOpensLabel",
+    "ui:futureReservation.startableNow",
+  ],
+  "golden-02-play-now-quote": [
+    "ui:screen.title",
+    "ui:playNowQuote.thirtyMinuteCost",
+    "ui:playNowQuote.fortyFiveMinuteCost",
+    "ui:playNowQuote.sixtyMinuteCostLabel",
+    "ui:playNowQuote.optionCount",
+    "ui:playNowQuote.confirmEnabled",
+    "ui:futureReservation.protected",
+    "ui:futureReservation.startableNow",
+  ],
+  "golden-03-play-now-confirmation": [
+    "ui:member.availableCredits",
+    "ui:currentReservation.suiteName",
+    "ui:currentReservation.bannerAccessLabel",
+    "ui:currentReservation.accessLabel",
+    "ui:currentReservation.startLabel",
+    "ui:currentReservation.endLabel",
+    "ui:currentReservation.startableNow",
+    "ui:currentReservation.incorrectScheduledCopyAbsent",
+  ],
+  "golden-04-active-session": [
+    "ui:currentReservation.statusLabel",
+    "ui:currentReservation.suiteName",
+    "ui:currentReservation.accessLabel",
+    "ui:currentReservation.startLabel",
+    "ui:currentReservation.endLabel",
+    "ui:currentReservation.canFinish",
+    "ui:currentReservation.startAbsent",
+  ],
+  "golden-05-my-golf": [
+    "ui:golfProfile.displayName",
+    "ui:golfProfile.handicapLabel",
+    "ui:golfProfile.provenance",
+    "ui:golfProfile.driverCarryLabel",
+    "ui:golfProfile.driverBallSpeedLabel",
+    "ui:golfProfile.driverDispersionLabel",
+    "ui:golfProfile.driverSampleLabel",
+    "ui:golfProfile.sevenIronCarryLabel",
+    "ui:golfProfile.sevenIronSampleLabel",
+    "ui:golfProfile.pitchingWedgeCarryLabel",
+    "ui:golfProfile.pitchingWedgeSampleLabel",
+    "ui:golfProfile.liveProviderImplicationAbsent",
+  ],
+  "golden-06-session-completion": [
+    "ui:member.firstName",
+    "ui:completedLifecycle.suiteName",
+    "ui:completedLifecycle.duration",
+    "ui:completedLifecycle.activitySaved",
+    "ui:completedLifecycle.activeSessionVisible",
+    "ui:completedLifecycle.viewGolfAction",
+    "ui:completedLifecycle.doneAction",
+    "state:completedLifecycle.reservationStatus",
+    "state:completedLifecycle.sessionEnded",
+    "state:completedLifecycle.accessStatus",
+    "state:completedLifecycle.turnoverTaskStatus",
+  ],
+  "golden-07-completed-lifecycle": [
+    "ui:completedLifecycle.memberHomeVisible",
+    "state:completedLifecycle.reservationStatus",
+    "state:completedLifecycle.accessStatus",
+    "state:completedLifecycle.turnoverTaskStatus",
+  ],
+  "golden-08-facilities-queue": [
+    "ui:inventory.openTaskCount",
+    "ui:inventory.readyCount",
+    "ui:topTask.suiteName",
+    "ui:topTask.statusLabel",
+    "ui:topTask.priority",
+    "ui:topTask.windowLabel",
+    "ui:topTask.dueLabel",
+    "ui:topTask.canClaim",
+    "state:topTask.sourceReservationId",
+    "state:topTask.sourceSessionId",
+    "state:topTask.status",
+  ],
+  "golden-09-facilities-service": [
+    "ui:topTask.suiteName",
+    "ui:topTask.statusLabel",
+    "ui:topTask.priority",
+    "ui:topTask.windowLabel",
+    "ui:topTask.dueLabel",
+    "ui:topTask.canComplete",
+    "state:topTask.sameTaskId",
+    "state:topTask.status",
+    "state:topTask.noDuplicate",
+  ],
+  "golden-10-suite-ready": [
+    "ui:completedLifecycle.successMessage",
+    "ui:inventory.readyCount",
+    "ui:inventory.allReadyAbsent",
+    "state:completedLifecycle.turnoverTaskStatus",
+    "state:completedLifecycle.suiteOperationalStatus",
+    "state:inventory.openTaskCount",
+    "state:inventory.safeToAssignNowCount",
+    "state:inventory.occupiedCount",
+  ],
+  };
+  return requiredAssertionIds[stepId] ?? [];
 }
 
 function writeReportFiles(audit, evidenceSummary) {
@@ -218,14 +362,14 @@ function writeReportFiles(audit, evidenceSummary) {
 function writeSourceSnapshot(commit) {
   const include = [
     /^src\/demo-universe\//,
-    /^src\/domains\/sessions\//,
-    /^src\/application\/member-flow\//,
-    /^src\/shared\/clock\.ts$/,
+    /^src\/domains\/(?:reservations|sessions|credits|access)\//,
+    /^src\/application\/(?:member-flow|facilities-flow)\//,
+    /^src\/shared\/(?:clock|location-time)\.ts$/,
     /^src-page\/(?:member|facilities)-experience\.tsx$/,
-    /^app\/api\/member\/session\/start\/route\.ts$/,
-    /^supabase\/migrations\/202607250001_session_start_authority\.sql$/,
+    /^app\/api\/(?:member|facilities)\//,
+    /^supabase\/migrations\//,
     /^scripts\/(?:demo-|run-du1-|verify-du1-|du1-review-bundle)/,
-    /^tests\/domains\/(?:demo-universe|du1-round2)/,
+    /^tests\/domains\/(?:demo-universe|du1-round2|du1-round3)/,
     /^tests\/experience-du1\//,
     /^tests\/experience\/support\/(?:personas|env)\.ts$/,
     /^playwright\.du1\.config\.ts$/,
@@ -327,6 +471,10 @@ function verifyStaging(directory, expectedCommit) {
     "source/SOURCE-SNAPSHOT.json", "source/src/demo-universe/universe.ts",
     "source/src/domains/sessions/start-authorization.ts",
     "source/supabase/migrations/202607250001_session_start_authority.sql",
+    "source/supabase/migrations/202607260001_du1_round3_temporal_authority.sql",
+    "source/src/shared/clock.ts", "source/src/shared/location-time.ts",
+    "source/app/api/member/session/complete/route.ts",
+    "source/app/api/facilities/state/route.ts",
   ];
   for (const file of required) if (!existsSync(path.join(directory, file))) throw new Error(`Required package content missing: ${file}`);
   const manifest = readJson(path.join(directory, "manifest.json"));
@@ -450,7 +598,7 @@ function assertRejectedCandidateFrozen() {
 
 function assertCleanTrackedTree() {
   const dirty = gitText(["status", "--porcelain", "--untracked-files=no"]).split(/\r?\n/).filter(Boolean);
-  if (dirty.length) throw new Error(`Cannot generate DU1 R2 Product Acceptance package: tracked tree is dirty.\n${dirty.join("\n")}`);
+   if (dirty.length) throw new Error(`Cannot generate DU1 R3 Product Acceptance package: tracked tree is dirty.\n${dirty.join("\n")}`);
 }
 
 function forbiddenPath(file) {
@@ -505,7 +653,7 @@ function escapePs(value) {
 }
 
 function readme({ commitSha, branch, generatedAt, audit, evidenceSummary, sourceSnapshot }) {
-  return `# Fairway Network DU1 Acceptance Remediation Round 2
+   return `# Fairway Network DU1 Acceptance Remediation Round 3
 
 Status: PENDING HUMAN REVIEW
 Commit: ${commitSha}

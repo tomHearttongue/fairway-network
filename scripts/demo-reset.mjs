@@ -50,9 +50,12 @@ try {
   await client.query("commit");
   const reconciliation = await reconcilePersistedUniverse(client, universe);
   const receipt = { ...execution, completedAt: new Date().toISOString(), reconciliation };
-  const output = path.join(repoRoot, "artifacts", "du1-remediation-review", "runtime", scenario, "reset-execution.json");
-  mkdirSync(path.dirname(output), { recursive: true });
+  const runtime = path.join(repoRoot, "artifacts", "du1-remediation-review", "runtime", scenario);
+  const output = path.join(runtime, "reset-execution.json");
+  const immutableOutput = path.join(runtime, "executions", `${execution.resetExecutionId}.json`);
+  mkdirSync(path.dirname(immutableOutput), { recursive: true });
   writeFileSync(output, `${JSON.stringify(receipt, null, 2)}\n`);
+  writeFileSync(immutableOutput, `${JSON.stringify(receipt, null, 2)}\n`);
   printSummary(demo.summarizeDemoUniverse(universe), integrity);
   console.log(`Reset execution: ${execution.resetExecutionId}`);
   console.log(`Reconciliation: ${reconciliation.ok ? "PASS" : "FAIL"}`);

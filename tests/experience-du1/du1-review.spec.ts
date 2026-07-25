@@ -105,7 +105,8 @@ function resetScenario(scenario: string) {
   const receiptPath = path.join(artifacts, "runtime", scenario, "reset-execution.json");
   const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
   expect(receipt.reconciliation.ok).toBe(true);
-  return { scenario, fingerprint: receipt.fingerprint, resetExecutionId: receipt.resetExecutionId, reconciliationPath: path.relative(process.cwd(), receiptPath).replaceAll("\\", "/") };
+  const immutableReceiptPath = path.join(artifacts, "runtime", scenario, "executions", `${receipt.resetExecutionId}.json`);
+  return { scenario, fingerprint: receipt.fingerprint, resetExecutionId: receipt.resetExecutionId, reconciliationPath: path.relative(process.cwd(), immutableReceiptPath).replaceAll("\\", "/") };
 }
 
 async function capture(page: Parameters<typeof captureDu1Screen>[0], testInfo: Parameters<typeof captureDu1Screen>[1], receipt: ReturnType<typeof resetScenario>, order: number, screen: string, persona: string, state: string, assertions: string[]) {

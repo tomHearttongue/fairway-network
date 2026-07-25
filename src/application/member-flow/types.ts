@@ -80,6 +80,8 @@ export interface PersistentReservationSummary extends PersistentReservation {
   suiteName: string;
   creditsCommitted: number;
   canCancel: boolean;
+  canStartSession?: boolean;
+  startBlockedReason?: "access_scheduled" | "access_expired" | "access_revoked" | "not_startable";
   canCompleteSession?: boolean;
   accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
   accessGrant?: PersistentAccessGrant | null;

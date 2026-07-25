@@ -60,7 +60,7 @@ describe("DU1 deterministic Demo Universe", () => {
 
     const lowInventory = buildDemoUniverse({ scenario: "low-inventory" });
     expect(lowInventory.scenarioExpectation.readyNowSuiteIds).toHaveLength(2);
-    expect(lowInventory.members.find((member) => member.id === "demo-tom")?.targetAvailableCreditUnits).toBeGreaterThanOrEqual(8);
+    expect(lowInventory.members.find((member) => member.id === "demo-tom")?.availableCreditUnits).toBeGreaterThanOrEqual(8);
 
     const incident = buildDemoUniverse({ scenario: "facility-incident" });
     expect(incident.facilityTasks.some((task) => task.taskType === "inspection")).toBe(true);

@@ -80,7 +80,7 @@ export interface DemoMember {
   membershipPlanCode: DemoMembershipPlan["code"] | null;
   archetype: DemoMemberArchetype;
   identityPool: IdentityPoolKey;
-  targetAvailableCreditUnits: number;
+  availableCreditUnits: number;
   personCreatedAt: string;
   memberProfileCreatedAt: string;
   role?: "facilities";
@@ -117,7 +117,7 @@ export interface DemoLedgerAudit {
   committedUnits: number;
   expiredUnits: number;
   finalUnits: number;
-  targetAvailableUnits: number;
+  projectedAvailableUnits: number;
   negativeRunningBalanceCount: number;
   idempotencyKeysUnique: boolean;
   firstEntryAt?: string;
@@ -372,6 +372,59 @@ export const IDENTITY_POOLS: Record<IdentityPoolKey, string[]> = {
   recognizableGolfCulture: [],
 };
 
+const REALISTIC_FIRST_NAMES = [
+  "Aiden", "Alice", "Amelia", "Andrew", "Anna", "Audrey", "Benjamin", "Blake",
+  "Caleb", "Caroline", "Chloe", "Connor", "Daniel", "Elena", "Emily", "Ethan",
+  "Evelyn", "Gabriel", "Grace", "Hannah", "Henry", "Ian", "Isabel", "Jack",
+  "Jasmine", "Jonah", "Julia", "Katherine", "Leah", "Leo", "Liam", "Lily",
+  "Lucas", "Madeline", "Marcus", "Maya", "Mia", "Miles", "Naomi", "Nathan",
+  "Nora", "Oliver", "Owen", "Paige", "Peter", "Rachel", "Ryan", "Samuel",
+  "Sarah", "Simon", "Sophia", "Stella", "Theo", "Thomas", "Victoria", "William",
+] as const;
+
+const REALISTIC_SURNAMES = [
+  "Adams", "Albright", "Alvarez", "Archer", "Atkins", "Baldwin", "Barnes", "Barrett",
+  "Barton", "Beck", "Bell", "Benson", "Black", "Bolton", "Boyd", "Brennan",
+  "Briggs", "Burke", "Burns", "Caldwell", "Callahan", "Carlson", "Chandler", "Chapman",
+  "Clarke", "Clayton", "Cobb", "Conrad", "Cook", "Crawford", "Cross", "Dalton",
+  "Dawson", "Dean", "Delaney", "Diaz", "Douglas", "Doyle", "Duncan", "Edwards",
+  "Emerson", "Erickson", "Evans", "Farrell", "Fields", "Fischer", "Fleming", "Flores",
+  "Ford", "Franklin", "Fraser", "Freeman", "Gallagher", "Gardner", "Garrett", "Gibbs",
+  "Gilbert", "Gill", "Gordon", "Graham", "Greene", "Griffin", "Hale", "Hamilton",
+  "Hampton", "Harper", "Harrington", "Harvey", "Hawkins", "Henderson", "Hendricks", "Henry",
+  "Hines", "Holden", "Holland", "Holt", "Howard", "Ingram", "Jacobs", "James",
+  "Jarvis", "Johnson", "Keller", "Kelley", "Kennedy", "Knox", "Lambert", "Lane",
+  "Larson", "Lawrence", "Lewis", "Livingston", "Lloyd", "Logan", "Lowe", "Mack",
+  "Marshall", "Mason", "Maxwell", "McCarthy", "McLean", "Medina", "Meyer", "Monroe",
+  "Moody", "Murray", "Nash", "Newman", "Norris", "Osborne", "Page", "Palmer",
+  "Parsons", "Pearson", "Perkins", "Pierce", "Porter", "Powell", "Quinn", "Ramsey",
+  "Rhodes", "Richardson", "Rivers", "Robertson", "Ross", "Saunders", "Sawyer", "Schmidt",
+  "Sherman", "Sims", "Snyder", "Spencer", "Stanton", "Stevens", "Sutton", "Thompson",
+  "Wagner", "Warren", "Watkins", "Webb", "Wells", "Wheeler", "Whitaker", "Williams",
+  "Willis", "Wilson", "Wright",
+] as const;
+
+export interface AuthoredDemoFundingEvent {
+  id: string;
+  memberId: DemoPersonaId;
+  entryType: "grant";
+  amountUnits: number;
+  createdAt: string;
+  rationale: string;
+  eligibility: string;
+  demoOnly: true;
+}
+
+export const AUTHORED_DEMO_FUNDING_EVENTS: AuthoredDemoFundingEvent[] = [
+  authoredFunding("demo-tom", 106, "Primary Demo Tom account opening balance for longitudinal Golden Demo history."),
+  authoredFunding("competitive-low", 15, "Authored competition-persona launch balance before historical practice usage."),
+  authoredFunding("high-variance", 18, "Authored high-variance persona launch balance before historical practice usage."),
+  authoredFunding("bogey-grinder", 12, "Authored grinder-persona launch balance before historical practice usage."),
+  authoredFunding("time-compressed-pro", 16, "Authored time-compressed persona launch balance before historical practice usage."),
+  authoredFunding("champions-member", 67, "Authored Champions persona launch balance before historical practice usage."),
+  authoredFunding("night-owl-social", 30, "Authored Night Owl persona launch balance before historical and guest-host activity."),
+];
+
 const LOCATION: DemoLocation = {
   id: DEMO_LOCATION_ID,
   name: "Fairway KC",
@@ -444,6 +497,7 @@ const SCENARIO_PLANS: Record<DemoScenarioKey, ScenarioPlan> = {
     currentReservations: [
       ...[1, 2, 3, 4, 5, 6].map((suiteNumber, index): CurrentReservationPlan => ({ key: `busy-active-${suiteNumber}`, memberId: `lightweight-${String(index + 1).padStart(3, "0")}`, suiteNumber, status: "checked_in", mode: "ADVANCE", startOffsetMinutes: -15, durationMinutes: 60, creditUnits: 12 })),
       ...[7, 8, 9, 10].map((suiteNumber, index): CurrentReservationPlan => ({ key: `busy-future-${suiteNumber}`, memberId: `lightweight-${String(index + 10).padStart(3, "0")}`, suiteNumber, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 30, durationMinutes: 60, creditUnits: 12 })),
+      { key: "tom-upcoming", memberId: "demo-tom", suiteNumber: 11, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 90, durationMinutes: 60, creditUnits: 12 },
     ],
     operationalBlocks: [],
     tasks: [],
@@ -453,7 +507,9 @@ const SCENARIO_PLANS: Record<DemoScenarioKey, ScenarioPlan> = {
   "new-member": {
     scenario: "new-member",
     primaryPersonaId: "new-golfer",
-    currentReservations: [],
+    currentReservations: [
+      { key: "tom-upcoming", memberId: "demo-tom", suiteNumber: 10, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 90, durationMinutes: 60, creditUnits: 12 },
+    ],
     operationalBlocks: [],
     tasks: [],
     expectedReadySuiteNumbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -464,7 +520,8 @@ const SCENARIO_PLANS: Record<DemoScenarioKey, ScenarioPlan> = {
     primaryPersonaId: "facilities-fran",
     currentReservations: [
       { key: "incident-priya-active", memberId: "time-compressed-pro", suiteNumber: 3, status: "checked_in", mode: "PLAY_NOW", startOffsetMinutes: -15, durationMinutes: 45, creditUnits: 6 },
-      { key: "incident-turnover-source", memberId: "demo-tom", suiteNumber: 6, status: "completed", mode: "PLAY_NOW", startOffsetMinutes: -60, durationMinutes: 30, creditUnits: 4 },
+      { key: "incident-turnover-source", memberId: "lightweight-050", suiteNumber: 6, status: "completed", mode: "PLAY_NOW", startOffsetMinutes: -60, durationMinutes: 30, creditUnits: 4 },
+      { key: "tom-upcoming", memberId: "demo-tom", suiteNumber: 10, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 90, durationMinutes: 60, creditUnits: 12 },
     ],
     operationalBlocks: [{ suiteNumber: 8, status: "inspection_required", reason: "Projector alignment requires inspection before use." }],
     tasks: [
@@ -480,6 +537,7 @@ const SCENARIO_PLANS: Record<DemoScenarioKey, ScenarioPlan> = {
     currentReservations: [
       ...[1, 2, 3, 4, 5].map((suiteNumber, index): CurrentReservationPlan => ({ key: `low-active-${suiteNumber}`, memberId: `lightweight-${String(index + 30).padStart(3, "0")}`, suiteNumber, status: "checked_in", mode: "ADVANCE", startOffsetMinutes: -15, durationMinutes: 60, creditUnits: 12 })),
       ...[6, 7, 8].map((suiteNumber, index): CurrentReservationPlan => ({ key: `low-future-${suiteNumber}`, memberId: `lightweight-${String(index + 40).padStart(3, "0")}`, suiteNumber, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 30, durationMinutes: 60, creditUnits: 12 })),
+      { key: "tom-upcoming", memberId: "demo-tom", suiteNumber: 11, status: "confirmed", mode: "ADVANCE", startOffsetMinutes: 90, durationMinutes: 60, creditUnits: 12 },
     ],
     operationalBlocks: [
       { suiteNumber: 9, status: "maintenance", reason: "Launch monitor calibration in progress." },
@@ -518,6 +576,7 @@ export function buildDemoUniverse(input: { scenario?: DemoScenarioKey } = {}): D
   const shots = buildShots(members, sessions, bags);
   const guestFacts = buildGuestFacts(members, reservations, sessions);
   const creditLedgerEntries = buildCreditLedgerEntries(members, memberships, reservations);
+  applyAvailableCreditProjection(members, creditLedgerEntries);
   const accessGrants = buildAccessGrants(reservations);
   const scenarioExpectation = buildScenarioExpectation(plan, reservations, sessions, facilityTasks, facilityState);
   const ledgerAudits = buildLedgerAudits(members, creditLedgerEntries);
@@ -627,6 +686,31 @@ export function buildScenarioReconciliation(universe: DemoUniverse) {
     })),
     myGolf: primaryProfile,
     facilityTasks: universe.facilityTasks,
+    suiteReadiness: universe.facilityState.map((state) => suiteReadinessAtClock(universe, state)),
+  };
+}
+
+export function buildPopulationMetrics(universe: DemoUniverse) {
+  const realistic = universe.members.filter((member) => member.id.startsWith("lightweight-") && member.identityPool === "realistic");
+  const firstNames = realistic.map((member) => member.displayName.split(" ")[0]);
+  const surnames = realistic.map((member) => member.displayName.split(" ").at(-1) ?? "");
+  const firstFrequency = countBy(firstNames, (value) => value);
+  const surnameFrequency = countBy(surnames, (value) => value);
+  const humorous = universe.members.filter((member) => member.id.startsWith("lightweight-") && member.identityPool !== "realistic");
+  return {
+    totalMembers: universe.members.length,
+    deepPersonas: universe.personas.length,
+    lightweightMembers: universe.members.length - universe.personas.length,
+    realisticLightweightMembers: realistic.length,
+    humorousLightweightMembers: humorous.length,
+    uniqueFullNames: new Set(universe.members.map((member) => member.displayName)).size,
+    uniqueRealisticSurnames: Object.keys(surnameFrequency).length,
+    maxRealisticSurnameFrequency: Math.max(0, ...Object.values(surnameFrequency)),
+    maxRealisticFirstNameFrequency: Math.max(0, ...Object.values(firstFrequency)),
+    longestContiguousSurnameBlock: longestContiguousBlock(surnames),
+    topSurnames: topFrequencyRows(surnameFrequency, 10),
+    topFirstNames: topFrequencyRows(firstFrequency, 10),
+    humorousMembers: humorous.map((member) => ({ id: member.id, displayName: member.displayName, pool: member.identityPool })),
   };
 }
 
@@ -702,13 +786,20 @@ export function verifyDemoUniverse(universe: DemoUniverse): DemoIntegrityResult 
 
   const names = countBy(universe.members, (member) => member.displayName);
   const uniqueNameCount = Object.keys(names).length;
-  if (uniqueNameCount < 209) errors.push(context(`display-name uniqueness expected>=209 actual=${uniqueNameCount}`));
-  for (const [name, count] of Object.entries(names)) if (count > 2) errors.push(context(`display-name duplicate name="${name}" count=${count} max=2`));
+  if (uniqueNameCount !== 220) errors.push(context(`display-name uniqueness expected=220 actual=${uniqueNameCount}`));
+  for (const [name, count] of Object.entries(names)) if (count > 1) errors.push(context(`display-name duplicate name="${name}" count=${count} max=1`));
   for (const thirdPartyName of ["Shooter McGavin", "Roy McAvoy", "Happy Gilmore"]) {
     if (universe.members.some((member) => member.displayName === thirdPartyName)) errors.push(context(`public display name must be original name="${thirdPartyName}"`));
   }
   const humorousCount = universe.members.filter((member) => ["subtleGolf", "obviousGolf", "easterEgg", "recognizableGolfCulture"].includes(member.identityPool)).length;
   if (humorousCount > 10) errors.push(context(`golf-humor identities expected<=10 actual=${humorousCount}`));
+  const population = buildPopulationMetrics(universe);
+  if (population.realisticLightweightMembers !== 203) errors.push(context(`realistic lightweight expected=203 actual=${population.realisticLightweightMembers}`));
+  if (population.humorousLightweightMembers !== 8) errors.push(context(`humorous lightweight expected=8 actual=${population.humorousLightweightMembers}`));
+  if (population.uniqueRealisticSurnames < 120) errors.push(context(`realistic surnames expected>=120 actual=${population.uniqueRealisticSurnames}`));
+  if (population.maxRealisticSurnameFrequency > 3) errors.push(context(`surname frequency expected<=3 actual=${population.maxRealisticSurnameFrequency}`));
+  if (population.maxRealisticFirstNameFrequency > 4) errors.push(context(`first-name frequency expected<=4 actual=${population.maxRealisticFirstNameFrequency}`));
+  if (population.longestContiguousSurnameBlock > 2) errors.push(context(`contiguous surname block expected<=2 actual=${population.longestContiguousSurnameBlock}`));
 
   const membersByProfile = new Map(universe.members.map((member) => [member.memberProfileId, member]));
   const membershipsByProfile = new Map(universe.memberships.map((membership) => [membership.memberProfileId, membership]));
@@ -718,7 +809,7 @@ export function verifyDemoUniverse(universe: DemoUniverse): DemoIntegrityResult 
     const membership = membershipsByProfile.get(member.memberProfileId);
     if (member.role === "facilities") {
       if (membership) errors.push(context(`facilities-only membership conflict member=${member.id} membership=${membership.id}`));
-      if (member.targetAvailableCreditUnits !== 0) errors.push(context(`facilities-only credits conflict member=${member.id} targetUnits=${member.targetAvailableCreditUnits}`));
+      if (member.availableCreditUnits !== 0) errors.push(context(`facilities-only credits conflict member=${member.id} availableUnits=${member.availableCreditUnits}`));
     } else {
       if (!membership) errors.push(context(`missing active membership member=${member.id} profile=${member.memberProfileId}`));
       if (membership && member.membershipPlanCode !== membership.membershipPlanCode) errors.push(context(`membership plan mismatch member=${member.id} memberPlan=${member.membershipPlanCode} membershipPlan=${membership.membershipPlanCode}`));
@@ -788,17 +879,24 @@ export function stableDemoUuid(input: string): string {
   return stableUuid(input);
 }
 
+function realisticIdentityForId(id: string): string {
+  const match = /^lightweight-(\d{3})$/.exec(id);
+  if (!match) throw new Error(`Invalid lightweight member ID: ${id}`);
+  const ordinal = Number(match[1]);
+  const firstName = REALISTIC_FIRST_NAMES[(ordinal * 29 + 17) % REALISTIC_FIRST_NAMES.length];
+  const surname = REALISTIC_SURNAMES[(ordinal * 67 + 31) % REALISTIC_SURNAMES.length];
+  return `${firstName} ${surname}`;
+}
+
 function buildMembers(): DemoMember[] {
   const deep = DEEP_PERSONA_FACTS.map(memberFromFact);
-  const realisticFirst = ["Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Cameron", "Avery", "Parker", "Reese", "Drew", "Hayden", "Blair", "Quinn", "Logan", "Sydney", "Elliot", "Jamie", "Devon", "Rowan", "Sam", "Kendall", "Marin", "Jules", "Emery", "Robin", "Bailey", "Sasha", "Mason", "Lena"];
-  const realisticLast = ["Anderson", "Bishop", "Carter", "Donovan", "Ellis", "Foster", "Garcia", "Hughes", "Iverson", "Jensen", "Kim", "Lawson", "Mitchell", "Nguyen", "Owens", "Patel", "Reed", "Sullivan", "Turner", "Vaughn", "Walsh", "Young", "Zimmer", "Brooks", "Collins", "Hayes", "Morris", "Parker", "Russell", "Stone"];
   const curatedGolf = [...IDENTITY_POOLS.subtleGolf.slice(0, 6), ...IDENTITY_POOLS.obviousGolf.slice(0, 2)];
   const population: DemoMember[] = [];
   for (let index = 0; index < 211; index += 1) {
     const id = `lightweight-${String(index + 1).padStart(3, "0")}`;
     const pool: IdentityPoolKey = index < 203 ? "realistic" : index < 209 ? "subtleGolf" : "obviousGolf";
     const displayName = pool === "realistic"
-      ? `${realisticFirst[index % realisticFirst.length]} ${realisticLast[Math.floor(index / realisticFirst.length)]}`
+      ? realisticIdentityForId(id)
       : curatedGolf[index - 203];
     const archetype = archetypeForIndex(index);
     const membershipPlanCode = planForArchetype(archetype);
@@ -814,12 +912,25 @@ function buildMembers(): DemoMember[] {
       membershipPlanCode,
       archetype,
       identityPool: pool,
-      targetAvailableCreditUnits: plan.monthlyCredits * 2,
+      availableCreditUnits: plan.monthlyCredits * 2,
       personCreatedAt: "2026-06-01T14:00:00.000Z",
       memberProfileCreatedAt: "2026-06-01T14:05:00.000Z",
     });
   }
   return [...deep, ...population].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function authoredFunding(memberId: DemoPersonaId, amountUnits: number, rationale: string): AuthoredDemoFundingEvent {
+  return {
+    id: `authored-opening:${memberId}`,
+    memberId,
+    entryType: "grant",
+    amountUnits,
+    createdAt: "2026-01-01T14:30:00.000Z",
+    rationale,
+    eligibility: `Explicit DU1 persona fixture ${memberId}`,
+    demoOnly: true,
+  };
 }
 
 function memberFromFact(fact: (typeof DEEP_PERSONA_FACTS)[number]): DemoMember {
@@ -837,7 +948,7 @@ function memberFromFact(fact: (typeof DEEP_PERSONA_FACTS)[number]): DemoMember {
     membershipPlanCode: fact.plan,
     archetype: fact.archetype,
     identityPool: fact.pool,
-    targetAvailableCreditUnits: fact.credits * 2,
+    availableCreditUnits: fact.credits * 2,
     role: isFacilities ? "facilities" : undefined,
     personCreatedAt,
     memberProfileCreatedAt: addMinutes(personCreatedAt, 5),
@@ -1096,23 +1207,15 @@ function buildCreditLedgerEntries(members: DemoMember[], memberships: DemoMember
     const currentMonthStart = monthStarts.at(-1);
     const monthGrantUnits = plan.monthlyCredits * 2;
 
-    let finalWithoutOpening = 0;
-    for (const monthStart of monthStarts) {
-      const nextMonth = addMonths(monthStart, 1);
-      const commits = memberReservations.filter((reservation) => reservation.createdAt >= monthStart && reservation.createdAt < nextMonth).reduce((sum, reservation) => sum + reservation.creditUnits, 0);
-      finalWithoutOpening += monthGrantUnits - commits;
-      if (monthStart !== currentMonthStart) finalWithoutOpening -= Math.max(0, monthGrantUnits - commits);
-    }
-    const openingUnits = Math.max(0, member.targetAvailableCreditUnits - finalWithoutOpening);
-    if (openingUnits > 0) {
+    for (const event of AUTHORED_DEMO_FUNDING_EVENTS.filter((item) => item.memberId === member.id)) {
       entries.push(ledgerEntry({
         member,
-        key: "opening-development-grant",
-        entryType: "grant",
-        amountUnits: openingUnits,
-        balanceDeltaUnits: openingUnits,
-        reason: "DU1 persistent development opening grant; demo-only and not a production entitlement.",
-        createdAt: addMinutes(membership.startedAt, 30),
+        key: event.id,
+        entryType: event.entryType,
+        amountUnits: event.amountUnits,
+        balanceDeltaUnits: event.amountUnits,
+        reason: `${event.rationale} Eligibility: ${event.eligibility} Demo-only; not a production entitlement.`,
+        createdAt: event.createdAt,
       }));
     }
 
@@ -1171,6 +1274,14 @@ function buildCreditLedgerEntries(members: DemoMember[], memberships: DemoMember
     }
   }
   return entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || ledgerOrder(a.entryType) - ledgerOrder(b.entryType) || a.id.localeCompare(b.id));
+}
+
+function applyAvailableCreditProjection(members: DemoMember[], entries: DemoCreditLedgerEntry[]): void {
+  for (const member of members) {
+    member.availableCreditUnits = entries
+      .filter((entry) => entry.memberProfileId === member.memberProfileId)
+      .reduce((balance, entry) => balance + entry.balanceDeltaUnits, 0);
+  }
 }
 
 function buildAccessGrants(reservations: DemoReservation[]): DemoAccessGrant[] {
@@ -1232,7 +1343,7 @@ function buildLedgerAudits(members: DemoMember[], entries: DemoCreditLedgerEntry
       committedUnits: sum(memberEntries.filter((item) => item.entryType === "commit").map((item) => item.amountUnits)),
       expiredUnits: sum(memberEntries.filter((item) => item.entryType === "expiration").map((item) => item.amountUnits)),
       finalUnits: balance,
-      targetAvailableUnits: member.targetAvailableCreditUnits,
+      projectedAvailableUnits: member.availableCreditUnits,
       negativeRunningBalanceCount,
       idempotencyKeysUnique: new Set(memberEntries.map((item) => item.idempotencyKey)).size === memberEntries.length,
       firstEntryAt: memberEntries[0]?.createdAt,
@@ -1381,7 +1492,7 @@ function verifyAccessGrants(universe: DemoUniverse, errors: string[]): void {
 function verifyLedger(universe: DemoUniverse, errors: string[]): void {
   for (const audit of universe.ledgerAudits) {
     if (audit.negativeRunningBalanceCount !== 0) errors.push(`scenario=${universe.metadata.scenario} ledger memberProfile=${audit.memberProfileId} negativeRunningBalanceCount=${audit.negativeRunningBalanceCount}`);
-    if (audit.finalUnits !== audit.targetAvailableUnits) errors.push(`scenario=${universe.metadata.scenario} ledger memberProfile=${audit.memberProfileId} finalUnits=${audit.finalUnits} targetUnits=${audit.targetAvailableUnits}`);
+    if (audit.finalUnits !== audit.projectedAvailableUnits) errors.push(`scenario=${universe.metadata.scenario} ledger memberProfile=${audit.memberProfileId} finalUnits=${audit.finalUnits} projectedUnits=${audit.projectedAvailableUnits}`);
     if (!audit.idempotencyKeysUnique) errors.push(`scenario=${universe.metadata.scenario} ledger memberProfile=${audit.memberProfileId} duplicate idempotency key`);
   }
   for (const entry of universe.creditLedgerEntries) {
@@ -1476,6 +1587,68 @@ function actualReadyNowSuiteIds(universe: DemoUniverse): string[] {
     })
     .map((state) => state.suiteId)
     .sort();
+}
+
+function suiteReadinessAtClock(universe: DemoUniverse, state: DemoSuiteState) {
+  const now = universe.metadata.clock;
+  const location = universe.locations[0];
+  const activeReservations = universe.reservations
+    .filter((reservation) => reservation.suiteId === state.suiteId && ["confirmed", "checked_in"].includes(reservation.status))
+    .sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const activeSession = universe.sessions.find((session) => session.suiteId === state.suiteId && !session.endedAt);
+  const activeTurnoverTask = universe.facilityTasks.find((task) => task.suiteId === state.suiteId && task.taskType === "turnover" && task.status !== "completed");
+  const protectedFutureReservation = activeReservations.find((reservation) => reservation.startAt > now);
+
+  let maxSafeDurationMinutes = 0;
+  let safeToAssignNow = false;
+  let reason = "No safe Play Now window.";
+  if (state.status !== "available") {
+    reason = `Operational state ${state.status} blocks assignment.`;
+  } else if (activeSession || activeReservations.some((reservation) => overlapsIso(now, addMinutes(now, 1), reservation.startAt, reservation.endAt))) {
+    reason = "Current occupancy blocks assignment.";
+  } else {
+    const rawMinutes = protectedFutureReservation
+      ? minutesBetween(now, addMinutes(protectedFutureReservation.startAt, -location.turnoverBufferMinutes))
+      : 120;
+    maxSafeDurationMinutes = Math.max(0, Math.floor(rawMinutes / location.bookingIncrementMinutes) * location.bookingIncrementMinutes);
+    safeToAssignNow = maxSafeDurationMinutes >= location.minimumSessionMinutes;
+    reason = safeToAssignNow
+      ? protectedFutureReservation
+        ? `Safe until turnover begins before protected reservation ${protectedFutureReservation.id}.`
+        : "Operationally ready with no near-term protected reservation."
+      : "Protected reservation leaves less than the minimum safe session.";
+  }
+
+  return {
+    suiteId: state.suiteId,
+    operationalStatus: state.status,
+    activeSessionId: activeSession?.id ?? null,
+    activeTurnoverTaskId: activeTurnoverTask?.id ?? null,
+    protectedFutureReservationId: protectedFutureReservation?.id ?? null,
+    protectedFutureReservationStartAt: protectedFutureReservation?.startAt ?? null,
+    maxSafeDurationMinutes,
+    safeToAssignNow,
+    reason,
+  };
+}
+
+function longestContiguousBlock(values: string[]): number {
+  let longest = 0;
+  let current = 0;
+  let previous: string | undefined;
+  for (const value of values) {
+    current = value === previous ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    previous = value;
+  }
+  return longest;
+}
+
+function topFrequencyRows(values: Record<string, number>, limit: number) {
+  return Object.entries(values)
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+    .slice(0, limit);
 }
 
 function countShotsOutsideSessions(universe: DemoUniverse): number {

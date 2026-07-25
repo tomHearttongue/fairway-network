@@ -118,7 +118,7 @@ describe("DU1 Product Acceptance remediation invariants", () => {
 
     for (const audit of universe.ledgerAudits ?? []) {
       expect(audit.negativeRunningBalanceCount, audit.memberProfileId).toBe(0);
-      expect(audit.finalUnits, audit.memberProfileId).toBe(audit.targetAvailableUnits);
+      expect(audit.finalUnits, audit.memberProfileId).toBe(audit.projectedAvailableUnits);
       expect(audit.idempotencyKeysUnique, audit.memberProfileId).toBe(true);
     }
 

@@ -50,7 +50,8 @@ try {
   await client.query("commit");
   const reconciliation = await reconcilePersistedUniverse(client, universe);
   const receipt = { ...execution, completedAt: new Date().toISOString(), reconciliation };
-  const runtime = path.join(repoRoot, "artifacts", "du1-remediation-review", "runtime", scenario);
+  const reviewRoot = process.env.FAIRWAY_DU1_REVIEW_ROOT ?? path.join("artifacts", "du1-remediation-review");
+  const runtime = path.join(repoRoot, reviewRoot, "runtime", scenario);
   const output = path.join(runtime, "reset-execution.json");
   const immutableOutput = path.join(runtime, "executions", `${execution.resetExecutionId}.json`);
   mkdirSync(path.dirname(immutableOutput), { recursive: true });
@@ -76,6 +77,7 @@ async function resetDemoRows(db) {
   const sessions = `(select id from sessions where member_profile_id in ${profiles} or idempotency_key like 'du1:%')`;
   const guests = `(select id from guests where email::text like 'fairway-demo-guest-%@example.com')`;
 
+  await db.query(`delete from audit_events where actor_id in (select id::text from member_profiles where id in ${profiles}) or idempotency_key like 'du1:%' or idempotency_key like 'du1-r2:%'`);
   await db.query(`delete from domain_events where idempotency_key like 'du1:%' or actor_id in (select id::text from member_profiles where id in ${profiles})`);
   await db.query(`delete from reservation_guests where reservation_id in ${reservations} or host_member_profile_id in ${profiles} or guest_id in ${guests}`);
   await db.query(`delete from agreement_acceptances where guest_id in ${guests}`);

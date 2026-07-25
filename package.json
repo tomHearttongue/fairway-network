@@ -19,6 +19,8 @@
     "demo:reset": "node scripts/demo-reset.mjs",
     "demo:verify": "node scripts/demo-verify.mjs",
     "demo:audit": "node scripts/demo-audit.mjs",
+    "verify:du1:r2:session-start": "node scripts/verify-du1-session-start-authority.mjs",
+    "verify:du1:r2:matrix": "node scripts/run-du1-r2-verification-matrix.mjs",
     "demo:review:qa": "node scripts/run-du1-review-qa.mjs",
     "demo:review:bundle": "node scripts/du1-review-bundle.mjs",
     "ux:qa": "node scripts/run-experience-qa.mjs",

@@ -148,7 +148,8 @@ export class SupabaseMemberStore {
     const reservation = reservations.find((item) => item.id === input.reservationId);
     if (!reservation) throw new Error("RESERVATION_NOT_FOUND");
 
-    const transientSession = await this.sessionProvider.startSession({ reservation, startedAt: this.clock.now() });
+    const now = this.clock.now();
+    const transientSession = await this.sessionProvider.startSession({ reservation, startedAt: now });
     const { data, error } = await this.supabase.rpc("fairway_start_session", {
       p_member_profile_id: input.memberProfileId,
       p_reservation_id: input.reservationId,
@@ -156,6 +157,7 @@ export class SupabaseMemberStore {
       p_external_session_id: transientSession.id,
       p_started_at: transientSession.startedAt.toISOString(),
       p_idempotency_key: input.idempotencyKey,
+      p_now: now.toISOString(),
     });
 
     if (error) throw new Error(error.message);
@@ -365,6 +367,8 @@ function mapReservationSummaryAt(reservation: StoredReservationSummary, now: Dat
   return {
     ...mapped,
     canCancel: mapped.status === "confirmed" && mapped.startAt > now && !mapped.sessionStartedAt,
+    canStartSession: mapped.status === "confirmed" && !mapped.sessionStartedAt && accessWindowStatus === "active",
+    startBlockedReason: sessionStartBlockedReason(mapped.status, accessWindowStatus, Boolean(mapped.sessionStartedAt)),
     canCompleteSession: mapped.status === "checked_in" && Boolean(mapped.sessionStartedAt) && !mapped.sessionEndedAt,
     accessWindowStatus,
     guests: mapped.guests.map((guest) => ({
@@ -372,6 +376,18 @@ function mapReservationSummaryAt(reservation: StoredReservationSummary, now: Dat
       accessEligible: guest.ready && accessWindowStatus === "active" && mapped.status !== "cancelled" && mapped.status !== "completed",
     })),
   };
+}
+
+function sessionStartBlockedReason(
+  status: PersistentReservationSummary["status"],
+  accessWindowStatus: PersistentReservationSummary["accessWindowStatus"],
+  hasSession: boolean,
+): PersistentReservationSummary["startBlockedReason"] | undefined {
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "scheduled") return "access_scheduled";
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "expired") return "access_expired";
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "revoked") return "access_revoked";
+  if (status !== "confirmed" || hasSession || accessWindowStatus !== "active") return "not_startable";
+  return undefined;
 }
 
 function mapReservationGuest(guest: StoredReservationGuest): PersistentReservationGuest {

@@ -443,7 +443,7 @@ async function runMobileStateGallery(browser: Browser, testInfo: TestInfo) {
     return [
       await containsText(page.getByText(/ready now/).first(), "inventory.safeToAssignNowCount", snapshot.inventory.safeToAssignNowCount),
       assertion("inventory.activeSessionCount", snapshot.inventory.activeSessionCount, 6),
-      assertion("inventory.protectedFutureReservationCount", snapshot.inventory.protectedFutureReservationCount, 4),
+      assertion("inventory.protectedNearTermReservationCount", snapshot.inventory.protectedNearTermReservationCount, 4),
     ];
   });
   await captureSimpleMemberScenario(browser, testInfo, "low-inventory", "demo-active-birdie", 13, "Low Inventory", "inventory-not-credit-constrained", async (page, snapshot) => {
@@ -753,6 +753,10 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
     && row.start_at <= new Date(FAIRWAY_DEMO_CLOCK_ISO)
     && row.end_at > new Date(FAIRWAY_DEMO_CLOCK_ISO),
   ).length;
+  const protectedHorizon = new Date(
+    new Date(FAIRWAY_DEMO_CLOCK_ISO).getTime()
+    + (Number(locationResult.rows[0].minimum_session_minutes) + Number(locationResult.rows[0].turnover_buffer_minutes)) * 60_000,
+  );
   return {
     member: {
       memberProfileId: member.member_profile_id,
@@ -822,8 +826,10 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
     inventory: {
       safeToAssignNowCount,
       activeSessionCount,
-      protectedFutureReservationCount: inventoryReservations.rows.filter((row) =>
-        row.status === "confirmed" && row.start_at > new Date(FAIRWAY_DEMO_CLOCK_ISO),
+      protectedNearTermReservationCount: inventoryReservations.rows.filter((row) =>
+        row.status === "confirmed"
+        && row.start_at > new Date(FAIRWAY_DEMO_CLOCK_ISO)
+        && row.start_at <= protectedHorizon,
       ).length,
     },
   };

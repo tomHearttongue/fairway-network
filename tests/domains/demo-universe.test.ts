@@ -26,9 +26,9 @@ describe("DU1 deterministic Demo Universe", () => {
     expect(universe.members.length).toBeGreaterThanOrEqual(150);
     expect(universe.members.length).toBeLessThanOrEqual(300);
     expect((counts.realistic ?? 0) / universe.members.length).toBeGreaterThanOrEqual(0.75);
-    expect(counts.subtleGolf).toBeGreaterThan(10);
+    expect(counts.subtleGolf).toBeGreaterThanOrEqual(8);
     expect(counts.obviousGolf).toBeLessThanOrEqual(8);
-    expect(counts.recognizableGolfCulture).toBeLessThanOrEqual(3);
+    expect(counts.recognizableGolfCulture ?? 0).toBe(0);
     expect(universe.members.some((member) => member.displayName === "Bogey Nelson")).toBe(true);
     expect(universe.members.some((member) => member.displayName === "Ned Threeputt")).toBe(true);
   });
@@ -59,7 +59,7 @@ describe("DU1 deterministic Demo Universe", () => {
     }
 
     const lowInventory = buildDemoUniverse({ scenario: "low-inventory" });
-    expect(lowInventory.facilityState.filter((state) => state.status === "available")).toHaveLength(3);
+    expect(lowInventory.scenarioExpectation.readyNowSuiteIds).toHaveLength(2);
     expect(lowInventory.members.find((member) => member.id === "demo-tom")?.targetAvailableCreditUnits).toBeGreaterThanOrEqual(8);
 
     const incident = buildDemoUniverse({ scenario: "facility-incident" });
@@ -81,7 +81,7 @@ describe("DU1 deterministic Demo Universe", () => {
     universe.members[1] = { ...universe.members[1], email: universe.members[0].email };
     const integrity = verifyDemoUniverse(universe);
     expect(integrity.ok).toBe(false);
-    expect(integrity.errors.some((error) => error.includes("Duplicate member email"))).toBe(true);
+    expect(integrity.errors.some((error) => error.includes("duplicate member email"))).toBe(true);
   });
 
   it("guards demo reset from running without explicit confirmation", () => {

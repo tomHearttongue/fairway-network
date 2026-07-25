@@ -3,7 +3,7 @@ import type { AuthPrincipal } from "@/domains/identity/types";
 import { SupabaseMemberStore } from "@/application/member-flow/supabase-member-store";
 import { clerkEnvironmentConfigured } from "@/integrations/auth/clerk-boundary";
 import { createSupabaseAdminClient, supabaseAdminEnvironmentConfigured } from "@/integrations/supabase/server";
-import { systemClock } from "@/shared/clock";
+import { applicationClock } from "@/shared/clock";
 
 export type MemberContextResult =
   | { kind: "ready"; principal: AuthPrincipal; memberProfileId: string; store: SupabaseMemberStore }
@@ -32,7 +32,7 @@ export async function getAuthenticatedMemberContext(): Promise<MemberContextResu
     displayName,
   };
 
-  const store = new SupabaseMemberStore(createSupabaseAdminClient(), systemClock);
+  const store = new SupabaseMemberStore(createSupabaseAdminClient(), applicationClock());
   const memberProfileId = await store.bootstrapMember(principal);
 
   return { kind: "ready", principal, memberProfileId, store };

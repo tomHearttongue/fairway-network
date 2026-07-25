@@ -18,6 +18,9 @@
     "verify:vs1g": "node scripts/verify-vertical-slice-1g.mjs",
     "demo:reset": "node scripts/demo-reset.mjs",
     "demo:verify": "node scripts/demo-verify.mjs",
+    "demo:audit": "node scripts/demo-audit.mjs",
+    "demo:review:qa": "node scripts/run-du1-review-qa.mjs",
+    "demo:review:bundle": "node scripts/du1-review-bundle.mjs",
     "ux:qa": "node scripts/run-experience-qa.mjs",
     "ux:review:bundle": "node scripts/ux-review-bundle.mjs"
   },

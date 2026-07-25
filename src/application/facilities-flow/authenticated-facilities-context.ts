@@ -5,7 +5,7 @@ import { SupabaseFacilitiesStore } from "@/application/facilities-flow/supabase-
 import type { AuthPrincipal } from "@/domains/identity/types";
 import { clerkEnvironmentConfigured } from "@/integrations/auth/clerk-boundary";
 import { createSupabaseAdminClient, supabaseAdminEnvironmentConfigured } from "@/integrations/supabase/server";
-import { systemClock } from "@/shared/clock";
+import { applicationClock } from "@/shared/clock";
 
 export type FacilitiesContextResult =
   | { kind: "ready"; principal: AuthPrincipal; memberProfileId: string; store: SupabaseFacilitiesStore }
@@ -27,9 +27,10 @@ export async function getAuthenticatedFacilitiesContext(): Promise<FacilitiesCon
 
   const principal: AuthPrincipal = { id: `clerk:${user.id}`, provider: "clerk", externalId: user.id, email };
   const supabase = createSupabaseAdminClient();
-  const memberStore = new SupabaseMemberStore(supabase, systemClock);
+  const clock = applicationClock();
+  const memberStore = new SupabaseMemberStore(supabase, clock);
   const memberProfileId = await memberStore.bootstrapMember(principal);
-  const store = new SupabaseFacilitiesStore(supabase, systemClock);
+  const store = new SupabaseFacilitiesStore(supabase, clock);
 
   if (isDevelopmentFacilitiesEmail(email)) {
     const state = await memberStore.getMemberState(memberProfileId);

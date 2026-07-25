@@ -55,7 +55,7 @@ async function login(page, email) {
   await page.goto("http://localhost:3000", { waitUntil: "domcontentloaded" });
   await clerk.signIn({ page, emailAddress: email });
   await page.goto("http://localhost:3000", { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await page.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
 }
 
 async function visibleCredits(page) {
@@ -246,7 +246,7 @@ try {
   log("SESSION_START_AND_RETRY_VERIFIED");
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 30000 });
   snapshot = await dbSnapshot(client, email, user.id, keys);
   assertEqual(await visibleCredits(page), Number(snapshot.availableCredits), "visible credits after browser refresh");
   log("BROWSER_REFRESH_VERIFIED");

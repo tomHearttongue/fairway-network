@@ -15,6 +15,9 @@ export class SupabaseMemberStore {
   constructor(private readonly supabase: SupabaseClient, private readonly clock: Clock) {}
 
   async bootstrapMember(principal: AuthPrincipal): Promise<string> {
+    const existing = await this.findExistingFairwayProfile(principal);
+    if (existing) return existing;
+
     const { data, error } = await this.supabase.rpc("fairway_bootstrap_clerk_member", {
       p_clerk_user_id: principal.externalId,
       p_email: principal.email,
@@ -25,11 +28,44 @@ export class SupabaseMemberStore {
     return String((data as { memberProfileId: string }).memberProfileId);
   }
 
+  private async findExistingFairwayProfile(principal: AuthPrincipal): Promise<string | null> {
+    const { data: linked, error: linkedError } = await this.supabase
+      .from("auth_principals")
+      .select("person_id")
+      .eq("provider", "clerk")
+      .eq("external_id", principal.externalId)
+      .maybeSingle();
+    if (linkedError) throw new Error(linkedError.message);
+
+    let personId = linked?.person_id as string | undefined;
+    if (!personId) {
+      const { data: person, error: personError } = await this.supabase.from("people").select("id").ilike("email", principal.email).maybeSingle();
+      if (personError) throw new Error(personError.message);
+      personId = person?.id as string | undefined;
+      if (!personId) return null;
+      const { error: linkError } = await this.supabase
+        .from("auth_principals")
+        .upsert({ provider: "clerk", external_id: principal.externalId, person_id: personId }, { onConflict: "provider,external_id" });
+      if (linkError) throw new Error(linkError.message);
+    }
+
+    const { data: profile, error: profileError } = await this.supabase.from("member_profiles").select("id").eq("person_id", personId).maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    return profile?.id ? String(profile.id) : null;
+  }
+
   async getMemberState(memberProfileId: string): Promise<PersistentMemberState> {
     const state = await this.getStoredMemberState(memberProfileId);
     const location = state.location;
     const suites = state.suites;
     const reservations = state.reservations.map(mapReservation);
+
+    const { data: quote, error: quoteError } = await this.supabase.rpc("fairway_quote_play_now", {
+      p_member_profile_id: memberProfileId,
+      p_requested_minutes: null,
+      p_now: this.clock.now().toISOString(),
+    });
+    if (quoteError) throw new Error(quoteError.message);
 
     return {
       person: state.person,
@@ -39,8 +75,8 @@ export class SupabaseMemberStore {
       location,
       suites,
       availability: calculateAvailability({ location, suites, reservations, at: this.clock.now() }),
-      playNowQuote: state.playNowQuote ? mapPlayNowQuote(state.playNowQuote) : undefined,
-      memberReservations: (state.memberReservations ?? []).map(mapReservationSummary),
+      playNowQuote: quote ? mapPlayNowQuote(quote as StoredPlayNowQuote) : undefined,
+      memberReservations: (state.memberReservations ?? []).map((item) => mapReservationSummaryAt(item, this.clock.now())),
       auditEvents: state.auditEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) })),
     };
   }
@@ -311,6 +347,30 @@ function mapReservationSummary(reservation: StoredReservationSummary): Persisten
     sessionStartedAt: toOptionalDate(reservation.session_started_at ?? reservation.sessionStartedAt),
     sessionEndedAt: toOptionalDate(reservation.session_ended_at ?? reservation.sessionEndedAt),
     guests: ((reservation.guests ?? reservation.guests) ?? []).map(mapReservationGuest),
+  };
+}
+
+function mapReservationSummaryAt(reservation: StoredReservationSummary, now: Date): PersistentReservationSummary {
+  const mapped = mapReservationSummary(reservation);
+  const access = mapped.accessGrant;
+  const accessWindowStatus = !access
+    ? "none"
+    : access.status === "revoked"
+      ? "revoked"
+      : now < access.startsAt
+        ? "scheduled"
+        : now >= access.expiresAt
+          ? "expired"
+          : "active";
+  return {
+    ...mapped,
+    canCancel: mapped.status === "confirmed" && mapped.startAt > now && !mapped.sessionStartedAt,
+    canCompleteSession: mapped.status === "checked_in" && Boolean(mapped.sessionStartedAt) && !mapped.sessionEndedAt,
+    accessWindowStatus,
+    guests: mapped.guests.map((guest) => ({
+      ...guest,
+      accessEligible: guest.ready && accessWindowStatus === "active" && mapped.status !== "cancelled" && mapped.status !== "completed",
+    })),
   };
 }
 

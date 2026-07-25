@@ -154,7 +154,7 @@ try {
   const hostContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const hostPage = await hostContext.newPage();
   await login(hostPage, hostEmail, "/");
-  await hostPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await hostPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
 
   const hostStart = new Date(Date.now() + (10 + (stamp % 3)) * 60_000);
   const hostEnd = new Date(hostStart.getTime() + 30 * 60_000);
@@ -236,7 +236,7 @@ try {
   const concurrentContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const concurrentPage = await concurrentContext.newPage();
   await login(concurrentPage, concurrentHostEmail, "/");
-  await concurrentPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await concurrentPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const concurrentStart = new Date(Date.now() + (48 * 60 + (stamp % 180)) * 60_000);
   const concurrentEnd = new Date(concurrentStart.getTime() + 30 * 60_000);
   const concurrentSuite = await client.query("select s.id from suites s where not exists (select 1 from reservations r where r.suite_id = s.id and r.status in ('held', 'confirmed', 'checked_in') and tstzrange(r.start_at, r.end_at, '[)') && tstzrange($1::timestamptz, $2::timestamptz, '[)')) order by s.name limit 1", [concurrentStart.toISOString(), concurrentEnd.toISOString()]);
@@ -259,7 +259,7 @@ try {
   const facilitiesContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const facilitiesPage = await facilitiesContext.newPage();
   await login(facilitiesPage, facilitiesEmail, "/");
-  await facilitiesPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await facilitiesPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const facilitiesProfile = await memberProfileForEmail(client, facilitiesEmail);
   await client.query("select fairway_grant_development_facilities($1, $2, $3)", [facilitiesProfile.id, facilitiesProfile.home_location_id, "Vertical Slice 1F runtime verification facilities grant"]);
   const facilitiesState = await facilitiesPage.evaluate(async () => {
@@ -285,11 +285,11 @@ try {
   assertEqual(retryRemove.body.idempotent, true, "idempotent guest remove flag");
 
   await hostPage.reload({ waitUntil: "domcontentloaded" });
-  await hostPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await hostPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   restartDevServer();
   await waitForServer();
   await hostPage.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
-  await hostPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await hostPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const persisted = await hostPage.evaluate(async () => {
     const response = await fetch("/api/member/availability", { cache: "no-store" });
     return { status: response.status, body: await response.json() };

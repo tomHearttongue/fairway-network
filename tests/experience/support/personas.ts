@@ -15,10 +15,10 @@ export type ExperiencePersona = {
 };
 
 export const PERSONAS: Record<PersonaKey, ExperiencePersona> = {
-  "demo-active-birdie": { key: "demo-active-birdie", email: "fairway-ux-demo-active-birdie@example.com", firstName: "Tom", lastName: "DemoGolfer", description: "Primary Golden Demo golfer with active Birdie membership and established demo baselines." },
-  "new-golfer": { key: "new-golfer", email: "fairway-ux-new-golfer@example.com", firstName: "Nora", lastName: "NewGolfer", description: "Early lifecycle golfer with no established Fairway performance baselines." },
-  "power-tour-member": { key: "power-tour-member", email: "fairway-ux-power-tour-member@example.com", firstName: "Maya", lastName: "PowerTour", description: "High-engagement golfer with richer demo performance history and higher-tier test entitlements." },
-  "guest-host-member": { key: "guest-host-member", email: "fairway-ux-guest-host-member@example.com", firstName: "Gabe", lastName: "GuestHost", description: "Member used to exercise hosted guest and waiver readiness states." },
+  "demo-active-birdie": { key: "demo-active-birdie", email: "fairway-ux-demo-active-birdie@example.com", firstName: "Tom", lastName: "", description: "Primary Golden Demo golfer with active Birdie membership and established demo baselines." },
+  "new-golfer": { key: "new-golfer", email: "fairway-ux-new-golfer@example.com", firstName: "Nora", lastName: "Bennett", description: "Early lifecycle golfer with no established Fairway performance baselines." },
+  "power-tour-member": { key: "power-tour-member", email: "fairway-ux-power-tour-member@example.com", firstName: "Maya", lastName: "Torres", description: "High-engagement golfer with richer demo performance history and higher-tier test entitlements." },
+  "guest-host-member": { key: "guest-host-member", email: "fairway-ux-guest-host-member@example.com", firstName: "Grant", lastName: "Gimme", description: "Member used to exercise hosted guest and waiver readiness states." },
   "constrained-member": { key: "constrained-member", email: "fairway-ux-constrained-member@example.com", firstName: "Connie", lastName: "Constrained", description: "Member used for insufficient-credit and blocked-availability states." },
   "facilities-user": { key: "facilities-user", email: "fairway-ux-facilities-user@example.com", firstName: "Fran", lastName: "Facilities", description: "Restricted Facilities/Cleaning persona, separate from golfers." },
 };
@@ -45,7 +45,14 @@ export async function ensureClerkPersonas(env: HarnessEnv): Promise<void> {
 async function ensureClerkUser(env: HarnessEnv, persona: ExperiencePersona): Promise<void> {
   const existing = await clerkApi(env, `/users?limit=10&query=${encodeURIComponent(persona.email)}`);
   const users = Array.isArray(existing) ? existing : (existing.data ?? []);
-  if (users.some((user: any) => user.email_addresses?.some((entry: any) => entry.email_address?.toLowerCase() === persona.email))) return;
+  const matched = users.find((user: any) => user.email_addresses?.some((entry: any) => entry.email_address?.toLowerCase() === persona.email));
+  if (matched) {
+    await clerkApi(env, `/users/${matched.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ first_name: persona.firstName, last_name: persona.lastName }),
+    });
+    return;
+  }
   await clerkApi(env, "/users", {
     method: "POST",
     body: JSON.stringify({

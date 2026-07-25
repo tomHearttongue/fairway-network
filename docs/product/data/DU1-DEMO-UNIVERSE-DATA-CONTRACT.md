@@ -18,6 +18,8 @@ Demo reset and verification tooling reports:
 - population counts
 - integrity result
 - deterministic fingerprint
+- reset execution ID and persisted count reconciliation
+- independent conflict counts and visible-metric source facts
 
 ## Product Analytics
 
@@ -41,8 +43,14 @@ Demo Universe Integrity Rate:
 ## Guardrail Metrics
 
 - duplicate canonical IDs
+- fewer than 209 unique display names in the 220-person population
 - Demo Tom count not equal to one
 - active reservation overlaps
+- active-session/suite-state contradiction
+- turnover task sourced from an active session
+- shot outside its source session or outside the effective bag
+- future-dated creation facts relative to the canonical clock
+- facilities-only persona receiving golfer membership, credits, or history
 - credit ledger mismatch after reset
 - scenario not proving its declared constraint
 - performance summary not traceable to canonical shot/session facts
@@ -67,11 +75,11 @@ Avoid analytics payloads containing email, guest PII, or recognizable third-part
 
 ## Logs / Diagnosis
 
-`pnpm demo:verify` and `pnpm demo:reset` print bounded operational summaries and validation errors. They must not print secrets, service-role keys, Clerk secrets, database passwords, or raw connection strings.
+`pnpm demo:verify`, `pnpm demo:audit`, and `pnpm demo:reset` print bounded operational summaries and actionable validation errors. They must not print secrets, service-role keys, Clerk secrets, database passwords, or raw connection strings.
 
 ## Privacy
 
-All DU1 people and performance facts are synthetic. Public/shared demos may replace recognizable golf-culture names through the centralized identity pool without changing product behavior.
+All DU1 people and performance facts are synthetic. The current public/deep-persona population uses original identities; the centrally replaceable recognizable-culture pool is empty in `DU1-v1`.
 
 ## Traceability
 
@@ -79,4 +87,5 @@ All DU1 people and performance facts are synthetic. Public/shared demos may repl
 - Source: `src/demo-universe/universe.ts`
 - Reset: `scripts/demo-reset.mjs`
 - Verify: `scripts/demo-verify.mjs`
-- Tests: `tests/domains/demo-universe.test.ts`
+- Independent audit: `scripts/demo-audit.mjs`
+- Tests: `tests/domains/demo-universe.test.ts`, `tests/domains/demo-universe-remediation.test.ts`

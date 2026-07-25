@@ -1,4 +1,6 @@
 import { loadDemoUniverseModule, printSummary } from "./demo-universe-loader.mjs";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 const scenarios = ["normal", "busy-prime", "new-member", "facility-incident", "low-inventory"];
 const demo = await loadDemoUniverseModule();
@@ -19,4 +21,24 @@ for (const scenario of scenarios) {
   console.log("");
 }
 
+const childRuns = [runFingerprints(), runFingerprints()];
+if (childRuns[0] !== childRuns[1]) {
+  console.error("Error: deterministic fingerprints differ across independent Node processes.");
+  failed = true;
+} else {
+  console.log("Cross-process fingerprints: PASS");
+}
+
 process.exit(failed ? 1 : 0);
+
+function runFingerprints() {
+  const result = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", "demo-fingerprints.mjs")], {
+    cwd: process.cwd(),
+    env: process.env,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Fingerprint process failed (${result.status}): ${result.stderr}`);
+  return result.stdout.trim();
+}

@@ -146,7 +146,7 @@ try {
   const operatorContext = await browser.newContext({ viewport: { width: 430, height: 900 } });
   const operatorPage = await operatorContext.newPage();
   await login(operatorPage, operatorEmail, "/");
-  await operatorPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await operatorPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const operatorProfile = await memberProfileForEmail(client, operatorEmail);
   await client.query("select fairway_grant_development_operator($1, $2, $3)", [operatorProfile.id, operatorProfile.home_location_id, "Vertical Slice 1D runtime verification operator grant"]);
   await operatorPage.goto("http://localhost:3000/operator", { waitUntil: "domcontentloaded" });
@@ -186,7 +186,7 @@ try {
   const memberContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const memberPage = await memberContext.newPage();
   await login(memberPage, memberEmail, "/");
-  await memberPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await memberPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
 
   const now = new Date();
   const startAt = new Date(now.getTime() + 60 * 60_000);

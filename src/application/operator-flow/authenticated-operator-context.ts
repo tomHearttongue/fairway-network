@@ -5,7 +5,7 @@ import { SupabaseOperatorStore } from "@/application/operator-flow/supabase-oper
 import type { AuthPrincipal } from "@/domains/identity/types";
 import { clerkEnvironmentConfigured } from "@/integrations/auth/clerk-boundary";
 import { createSupabaseAdminClient, supabaseAdminEnvironmentConfigured } from "@/integrations/supabase/server";
-import { systemClock } from "@/shared/clock";
+import { applicationClock } from "@/shared/clock";
 
 export type OperatorContextResult =
   | { kind: "ready"; principal: AuthPrincipal; memberProfileId: string; store: SupabaseOperatorStore }
@@ -27,9 +27,10 @@ export async function getAuthenticatedOperatorContext(): Promise<OperatorContext
 
   const principal: AuthPrincipal = { id: `clerk:${user.id}`, provider: "clerk", externalId: user.id, email };
   const supabase = createSupabaseAdminClient();
-  const memberStore = new SupabaseMemberStore(supabase, systemClock);
+  const clock = applicationClock();
+  const memberStore = new SupabaseMemberStore(supabase, clock);
   const memberProfileId = await memberStore.bootstrapMember(principal);
-  const store = new SupabaseOperatorStore(supabase, systemClock);
+  const store = new SupabaseOperatorStore(supabase, clock);
 
   if (isDevelopmentOperatorEmail(email)) {
     const state = await memberStore.getMemberState(memberProfileId);

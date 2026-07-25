@@ -147,9 +147,16 @@ function validateEvidence(input) {
       "universeVersion", "universeSeed", "universeFingerprint", "canonicalClockUtc",
       "canonicalClockLocal", "localTimezone", "resetExecutionId", "flowExecutionId",
       "reconciliationPath", "structuredAssertions", "qualityCaptureId", "accessibilityEvidenceId",
-      "captureId", "logicalStateId", "stepId", "stepNumber",
+      "captureId", "logicalStateId", "stepId",
     ]) {
       if (item[field] === undefined || item[field] === null) throw new Error(`Screenshot ${item.file} lacks ${field}.`);
+    }
+    if (item.stepId.startsWith("golden-")) {
+      if (!Number.isInteger(item.stepNumber) || item.stepNumber !== item.step) {
+        throw new Error(`Golden screenshot ${item.file} lacks its canonical step number.`);
+      }
+    } else if (item.stepNumber !== null) {
+      throw new Error(`Non-Golden screenshot ${item.file} must not claim a Golden step number.`);
     }
     if (item.exactCommitSha !== input.commitSha) throw new Error(`Screenshot commit mismatch: ${item.file}`);
     const screenshotFile = path.join(root, item.file);

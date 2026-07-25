@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Page, type Request, type TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -49,42 +49,61 @@ export type QualityCapture = {
 
 export function startQualityCapture(page: Page, id: string): QualityCapture {
   const result: QualityCapture = { id, consoleErrors: [], expectedCancellations: [], unexpectedNetworkFailures: [] };
-  const navigationActions: Array<{ at: number; action: string }> = [];
+  const activeKnownRequests = new Map<string, Request>();
+  const supersededRequests = new WeakSet<Request>();
   page.on("console", (message) => {
     if (message.type() === "error") result.consoleErrors.push({ text: sanitize(message.text()), location: sanitize(message.location().url) });
   });
   page.on("request", (request) => {
-    if (request.isNavigationRequest()) {
-      navigationActions.push({ at: Date.now(), action: `document navigation to ${sanitize(request.url())}` });
-      if (navigationActions.length > 20) navigationActions.shift();
+    const key = knownRefreshKey(request);
+    if (key) {
+      const previous = activeKnownRequests.get(key);
+      if (previous) supersededRequests.add(previous);
+      activeKnownRequests.set(key, request);
     }
   });
+  page.on("requestfinished", (request) => clearActiveRequest(activeKnownRequests, request));
   page.on("requestfailed", (request) => {
     const failure = request.failure()?.errorText ?? "unknown";
     const item = { url: sanitize(request.url()), failure };
     const browserCancellation = /\b(?:ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT)\b/i.test(failure);
-    const recentNavigation = [...navigationActions].reverse().find((action) => Date.now() - action.at <= 5_000);
-    const knownNavigationResource = request.isNavigationRequest()
-      || request.resourceType() === "document"
-      || /[?&]_rsc=/.test(request.url())
-      || /\/api\/member\/availability(?:\?|$)/.test(request.url());
     const localReviewOrigin = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\//.test(request.url());
-    if (browserCancellation && recentNavigation && knownNavigationResource && localReviewOrigin) {
+    const documentNavigation = request.isNavigationRequest() || request.resourceType() === "document";
+    const supersededRefresh = supersededRequests.has(request) && Boolean(knownRefreshKey(request));
+    if (browserCancellation && localReviewOrigin && (documentNavigation || supersededRefresh)) {
       result.expectedCancellations.push({
         ...item,
-        category: request.isNavigationRequest() || request.resourceType() === "document" ? "document-navigation" : "navigation-dependent-request",
-        initiatingAction: recentNavigation.action,
-        justification: "Browser cancelled a known document, RSC, or member-state request within five seconds of recorded navigation.",
+        category: documentNavigation ? "document-navigation" : "superseded-read-model-request",
+        initiatingAction: documentNavigation
+          ? `document navigation to ${sanitize(request.url())}`
+          : `newer canonical read-model request replaced ${sanitize(request.url())}`,
+        justification: documentNavigation
+          ? "Browser cancelled this local document request during a redirect or superseding navigation."
+          : "A newer request to the same known canonical read-model endpoint superseded this local request.",
         observedAt: new Date().toISOString(),
       });
     } else {
       result.unexpectedNetworkFailures.push(item);
     }
+    clearActiveRequest(activeKnownRequests, request);
   });
   page.on("response", (response) => {
     if (response.status() >= 400) result.unexpectedNetworkFailures.push({ url: sanitize(response.url()), failure: `HTTP ${response.status()}` });
   });
   return result;
+}
+
+function knownRefreshKey(request: Request): string | null {
+  const url = new URL(request.url());
+  if (!/^https?:$/.test(url.protocol) || !["localhost", "127.0.0.1"].includes(url.hostname)) return null;
+  if (/[?&]_rsc=/.test(request.url())) return `${url.pathname}:rsc`;
+  if (/^\/api\/(?:member\/availability|facilities\/state)$/.test(url.pathname)) return url.pathname;
+  return null;
+}
+
+function clearActiveRequest(activeRequests: Map<string, Request>, request: Request): void {
+  const key = knownRefreshKey(request);
+  if (key && activeRequests.get(key) === request) activeRequests.delete(key);
 }
 
 export async function captureDu1Screen(page: Page, testInfo: TestInfo, input: {

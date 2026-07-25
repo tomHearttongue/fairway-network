@@ -9,6 +9,7 @@ import { assertDevelopmentEnv, loadHarnessEnv } from "../experience/support/env"
 import { bootstrapPersona, connectDb, ensureClerkPersonas, loginPersona, memberProfileForEmail, PERSONAS, setCreditTarget } from "../experience/support/personas";
 import {
   captureDu1Screen,
+  expectLoginNavigationCancellation,
   flushQuality,
   resetEvidenceFiles,
   runDu1A11y,
@@ -257,6 +258,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
     const facilitiesContext = await browser.newContext({ viewport: viewportFor(testInfo.project.name) });
     const facilitiesPage = await facilitiesContext.newPage();
     const facilitiesQuality = startQualityCapture(facilitiesPage, `${flowExecutionId}:facilities`);
+    expectLoginNavigationCancellation(facilitiesQuality, "http://localhost:3100/facilities");
     await loginPersona(facilitiesPage, PERSONAS["facilities-user"], "/facilities");
     await expect(facilitiesPage.getByRole("heading", { name: "What should I service now?" })).toBeVisible({ timeout: 45_000 });
     let goldenTaskId = "";
@@ -347,6 +349,7 @@ async function runLargeViewportGoldenDemo(browser: Browser, testInfo: TestInfo) 
   const page = await memberContext.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:member`);
   try {
+    expectLoginNavigationCancellation(quality, "http://localhost:3100/");
     await loginPersona(page, PERSONAS["demo-active-birdie"], "/");
     await expect(page.getByRole("heading", { name: /Ready to play, Tom/i })).toBeVisible();
     await captureMemberState(page, client, testInfo, receipt, {
@@ -394,6 +397,7 @@ async function runLargeViewportGoldenDemo(browser: Browser, testInfo: TestInfo) 
     const facilitiesContext = await browser.newContext({ viewport: viewportFor(testInfo.project.name) });
     const facilitiesPage = await facilitiesContext.newPage();
     const facilitiesQuality = startQualityCapture(facilitiesPage, `${flowExecutionId}:facilities`);
+    expectLoginNavigationCancellation(facilitiesQuality, "http://localhost:3100/facilities");
     await loginPersona(facilitiesPage, PERSONAS["facilities-user"], "/facilities");
     await expect(facilitiesPage.getByRole("heading", { name: "What should I service now?" })).toBeVisible({ timeout: 45_000 });
     await captureFacilitiesState(facilitiesPage, client, testInfo, receipt, {

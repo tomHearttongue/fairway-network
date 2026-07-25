@@ -6,6 +6,7 @@ import path from "node:path";
 import { FAIRWAY_DEMO_CLOCK_ISO, FAIRWAY_DEMO_UNIVERSE_SEED, FAIRWAY_DEMO_UNIVERSE_VERSION } from "@/demo-universe/universe";
 
 const root = path.join("artifacts", "du1-remediation-r3-review");
+const expectedLoginNavigations = new WeakMap<QualityCapture, Set<string>>();
 
 export type CaptureIdentity = {
   captureId: string;
@@ -49,6 +50,7 @@ export type QualityCapture = {
 
 export function startQualityCapture(page: Page, id: string): QualityCapture {
   const result: QualityCapture = { id, consoleErrors: [], expectedCancellations: [], unexpectedNetworkFailures: [] };
+  expectedLoginNavigations.set(result, new Set());
   const activeKnownRequests = new Map<string, Request>();
   const supersededRequests = new WeakMap<Request, string>();
   page.on("console", (message) => {
@@ -69,12 +71,18 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
     const browserCancellation = /\b(?:ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT)\b/i.test(failure);
     const localReviewOrigin = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\//.test(request.url());
     const supersedingRequest = supersededRequests.get(request);
-    if (browserCancellation && localReviewOrigin && supersedingRequest) {
+    const expectedLoginTarget = expectedLoginNavigations.get(result)?.has(request.url()) ?? false;
+    if (browserCancellation && localReviewOrigin && (supersedingRequest || expectedLoginTarget)) {
+      if (expectedLoginTarget) expectedLoginNavigations.get(result)?.delete(request.url());
       result.expectedCancellations.push({
         ...item,
-        category: "superseded-view-request",
-        initiatingAction: `newer request ${supersedingRequest}`,
-        justification: "A newer request for the same known local member or facilities view superseded this request.",
+        category: expectedLoginTarget ? "authenticated-navigation" : "superseded-view-request",
+        initiatingAction: expectedLoginTarget
+          ? `deterministic persona login to ${sanitize(request.url())}`
+          : `newer request ${supersedingRequest}`,
+        justification: expectedLoginTarget
+          ? "The deterministic Clerk login flow redirected the explicitly declared local target navigation."
+          : "A newer request for the same known local member or facilities view superseded this request.",
         observedAt: new Date().toISOString(),
       });
     } else {
@@ -86,6 +94,10 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
     if (response.status() >= 400) result.unexpectedNetworkFailures.push({ url: sanitize(response.url()), failure: `HTTP ${response.status()}` });
   });
   return result;
+}
+
+export function expectLoginNavigationCancellation(capture: QualityCapture, targetUrl: string): void {
+  expectedLoginNavigations.get(capture)?.add(targetUrl);
 }
 
 function knownRefreshKey(request: Request): string | null {

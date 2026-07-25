@@ -398,7 +398,7 @@ function scanDirectory(directory) {
     if (forbiddenPath(relative)) secrets.push(relative);
     if (!/\.(?:md|json|ts|tsx|js|mjs|txt|sql|yml|yaml|html|css)$/.test(file.toLowerCase())) continue;
     const text = readFileSync(file, "utf8");
-    if (/sk_(?:test|live)_[A-Za-z0-9_-]+|pk_(?:test|live)_[A-Za-z0-9_-]+|whsec_[A-Za-z0-9_-]+|service_role["'\s:=]+eyJ|__clerk_db_jwt=(?!\[redacted\])[^&\s]+|\b(?:dvb|sess)_[A-Za-z0-9_-]+\b/i.test(text)) secrets.push(relative);
+    if (/sk_(?:test|live)_[A-Za-z0-9_-]+|pk_(?:test|live)_[A-Za-z0-9_-]+|whsec_[A-Za-z0-9_-]+|service_role["'\s:=]+eyJ[A-Za-z0-9._-]+|__clerk_db_jwt=(?!\[redacted\])eyJ[A-Za-z0-9._-]+|\b(?:dvb|sess)_[A-Za-z0-9_-]+\b/i.test(text)) secrets.push(relative);
     if (/[A-Za-z]:[\\/](?:Users|Documents|Program Files)[\\/]/i.test(text)) absoluteLocalPaths.push(relative);
   }
   return { secrets: [...new Set(secrets)], absoluteLocalPaths: [...new Set(absoluteLocalPaths)] };

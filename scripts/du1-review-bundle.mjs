@@ -38,8 +38,8 @@ copyGeneratedTree("screenshots");
 copyGeneratedTree("evidence");
 copyGeneratedTree("runtime");
 copyGeneratedTree("reports");
-copyGeneratedTree("playwright/report");
-copyGeneratedFile("playwright/results.json");
+copySanitizedGeneratedTree("playwright/report");
+copySanitizedGeneratedFile("playwright/results.json");
 
 const sourceSnapshot = writeSourceSnapshot(commitSha);
 writeJson(path.join(staging, "provenance.json"), {
@@ -270,6 +270,42 @@ function copyGeneratedFile(relative) {
   const destination = path.join(staging, relative);
   mkdirSync(path.dirname(destination), { recursive: true });
   writeFileSync(destination, readFileSync(source));
+}
+
+function copySanitizedGeneratedTree(relative) {
+  const source = path.join(root, relative);
+  if (!existsSync(source)) return;
+  for (const file of files(source)) {
+    if (forbiddenPath(file)) continue;
+    const relativeFile = path.relative(root, file);
+    const destination = path.join(staging, relativeFile);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    const content = readFileSync(file);
+    writeFileSync(destination, isTextFile(file) ? sanitizeDistributableText(content.toString("utf8")) : content);
+  }
+}
+
+function copySanitizedGeneratedFile(relative) {
+  const source = path.join(root, relative);
+  if (!existsSync(source)) throw new Error(`Required generated file missing: ${relative}`);
+  const destination = path.join(staging, relative);
+  mkdirSync(path.dirname(destination), { recursive: true });
+  writeFileSync(destination, sanitizeDistributableText(readFileSync(source, "utf8")));
+}
+
+function sanitizeDistributableText(value) {
+  return String(value)
+    .replaceAll(repoRoot, "[REPO]")
+    .replaceAll(repoRoot.replaceAll("\\", "\\\\"), "[REPO]")
+    .replaceAll(repoRoot.replaceAll("\\", "/"), "[REPO]")
+    .replace(/[A-Za-z]:(?:\\\\)+Users(?:\\\\)+[^\\\r\n"']+/gi, "[USER_HOME]")
+    .replace(/[A-Za-z]:(?:\\\\)+(?:Program Files|Documents)(?:\\\\)+/gi, "[LOCAL_ROOT]\\\\")
+    .replace(/[A-Za-z]:[\\/]Users[\\/][^\\/\r\n"']+/gi, "[USER_HOME]")
+    .replace(/[A-Za-z]:[\\/](?:Program Files|Documents)[\\/]/gi, "[LOCAL_ROOT]/");
+}
+
+function isTextFile(file) {
+  return /\.(?:md|json|ts|tsx|js|mjs|txt|sql|yml|yaml|html|css)$/i.test(file);
 }
 
 function writeFileManifest(directory) {

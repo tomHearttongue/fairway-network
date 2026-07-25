@@ -373,6 +373,7 @@ function verifyFileManifest(directory) {
 
 function createPortableZip(source, destination) {
   const script = [
+    "Add-Type -AssemblyName System.IO.Compression",
     "Add-Type -AssemblyName System.IO.Compression.FileSystem",
     `$source='${escapePs(source)}'`,
     `$destination='${escapePs(destination)}'`,

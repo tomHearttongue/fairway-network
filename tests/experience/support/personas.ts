@@ -133,13 +133,26 @@ export async function grantFacilitiesRole(client: Client, memberProfileId: strin
 export async function setCreditTarget(client: Client, memberProfileId: string, targetCredits: number, reason: string): Promise<void> {
   const targetUnits = targetCredits * 2;
   if (!Number.isInteger(targetUnits)) throw new Error(`Experience QA credit target must align to half-credit units: ${targetCredits}`);
-  const current = await client.query("select fairway_available_credit_units($1)::int as units", [memberProfileId]);
-  const deltaUnits = targetUnits - Number(current.rows[0].units);
-  if (deltaUnits === 0) return;
-  await client.query(
-    "insert into credit_ledger_entries (member_profile_id, entry_type, amount, balance_delta, idempotency_key, reason, actor_id) values ($1, 'adjustment', $2, $3, $4, $5, 'experience-qa')",
-    [memberProfileId, Math.abs(deltaUnits), deltaUnits, `experience-qa:${memberProfileId}:credit-target:${targetCredits}:${Date.now()}`, reason],
-  );
+  const idempotencyKey = `experience-qa:${memberProfileId}:credit-target:${targetUnits}-units`;
+  await client.query("begin");
+  try {
+    await client.query(
+      "delete from credit_ledger_entries where member_profile_id = $1 and actor_id = 'experience-qa' and idempotency_key = $2",
+      [memberProfileId, idempotencyKey],
+    );
+    const current = await client.query("select fairway_available_credit_units($1)::int as units", [memberProfileId]);
+    const deltaUnits = targetUnits - Number(current.rows[0].units);
+    if (deltaUnits !== 0) {
+      await client.query(
+        "insert into credit_ledger_entries (member_profile_id, entry_type, amount, balance_delta, idempotency_key, reason, actor_id) values ($1, 'adjustment', $2, $3, $4, $5, 'experience-qa') on conflict (idempotency_key) do nothing",
+        [memberProfileId, Math.abs(deltaUnits), deltaUnits, idempotencyKey, reason],
+      );
+    }
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  }
 }
 
 export async function ensureTourPlanForProfile(client: Client, memberProfileId: string): Promise<void> {

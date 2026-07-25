@@ -3,6 +3,8 @@
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Flag, PlayCircle, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { facilitiesEmptyTaskCopy, facilitiesHeaderCopy } from "@/application/facilities-flow/facilities-presentation";
+import { formatLocationTime } from "@/shared/location-time";
 
 type SuiteStatus = "available" | "occupied" | "turnover" | "inspection_required" | "maintenance" | "out_of_service" | "administrative_hold";
 
@@ -132,6 +134,8 @@ function FacilitiesControls() {
   }
 
   if (!state) return <main className="facilities-shell loading-state">Loading Cleaning Mode...</main>;
+  const readinessSummary = { openTaskCount: state.tasks.length, readySuiteCount: readyCount, totalSuiteCount: state.suites.length };
+  const emptyTaskCopy = facilitiesEmptyTaskCopy(readinessSummary);
 
   return (
     <div className="facilities-shell">
@@ -139,7 +143,7 @@ function FacilitiesControls() {
         <div>
           <span className="operator-kicker">Cleaning Mode</span>
           <h1>What should I service now?</h1>
-          <p>{state.tasks.length === 0 ? "All suites are ready." : `${state.tasks.length} active ${state.tasks.length === 1 ? "task" : "tasks"}. ${readyCount} suites ready.`}</p>
+          <p>{facilitiesHeaderCopy(readinessSummary)}</p>
         </div>
         <div className="operator-header-actions"><button className="secondary" type="button" onClick={refresh}><RefreshCcw size={17} />Refresh</button><UserButton /></div>
       </header>
@@ -149,7 +153,7 @@ function FacilitiesControls() {
       <main className="facilities-grid">
         <section className="facility-next-card" aria-label="Next service task">
           <div className="panel-heading"><h2>Next Best Action</h2><span>{timezoneLabel(state.location.timezone)}</span></div>
-          {topTask ? <TaskCard task={topTask} featured loading={loading} onAction={(action) => mutateTask(topTask, action)} /> : <div className="all-ready"><CheckCircle2 size={36} /><strong>All suites are ready</strong><span>No turnover or inspection tasks are open.</span></div>}
+          {topTask ? <TaskCard task={topTask} timeZone={state.location.timezone} featured loading={loading} onAction={(action) => mutateTask(topTask, action)} /> : <div className="all-ready"><CheckCircle2 size={36} /><strong>{emptyTaskCopy.title}</strong><span>{emptyTaskCopy.detail}</span></div>}
         </section>
 
         <section className="operator-panel facilities-actions" aria-label="Service notes and inspection context">
@@ -166,19 +170,19 @@ function FacilitiesControls() {
 
         {otherTasks.length > 0 && <section className="operator-panel facilities-task-list">
           <div className="panel-heading"><h2>Other Tasks</h2><span>{otherTasks.length}</span></div>
-          <div className="task-list">{otherTasks.map((task) => <TaskCard key={task.id} task={task} loading={loading} onAction={(action) => mutateTask(task, action)} />)}</div>
+          <div className="task-list">{otherTasks.map((task) => <TaskCard key={task.id} task={task} timeZone={state.location.timezone} loading={loading} onAction={(action) => mutateTask(task, action)} />)}</div>
         </section>}
 
         <section className="operator-panel facilities-suite-list">
           <div className="panel-heading"><h2>Suites</h2><span>{state.suites.length}</span></div>
-          <div className="facility-suite-list">{state.suites.map((suite) => <button className={`facility-suite-row ${suite.id === selectedSuite?.id ? "selected" : ""}`} key={suite.id} type="button" aria-pressed={suite.id === selectedSuite?.id} onClick={() => setSelectedSuiteId(suite.id)}><strong>{suite.name}</strong><span>{formatStatus(suite.status)}</span><small>{suite.occupiedUntil ? `Occupied until ${formatTime(suite.occupiedUntil)}` : suite.nextReservationAt ? `Next reservation ${formatTime(suite.nextReservationAt)}` : "No upcoming booking"}</small></button>)}</div>
+          <div className="facility-suite-list">{state.suites.map((suite) => <button className={`facility-suite-row ${suite.id === selectedSuite?.id ? "selected" : ""}`} key={suite.id} type="button" aria-pressed={suite.id === selectedSuite?.id} onClick={() => setSelectedSuiteId(suite.id)}><strong>{suite.name}</strong><span>{formatStatus(suite.status)}</span><small>{suite.occupiedUntil ? `Occupied until ${formatLocationTime(suite.occupiedUntil, state.location.timezone)}` : suite.nextReservationAt ? `Next reservation ${formatLocationTime(suite.nextReservationAt, state.location.timezone)}` : "No upcoming booking"}</small></button>)}</div>
         </section>
       </main>
     </div>
   );
 }
 
-function TaskCard({ task, featured, loading, onAction }: { task: FacilityTask; featured?: boolean; loading: boolean; onAction: (action: TaskAction) => void }) {
+function TaskCard({ task, timeZone, featured, loading, onAction }: { task: FacilityTask; timeZone: string; featured?: boolean; loading: boolean; onAction: (action: TaskAction) => void }) {
   const nextAction = nextTaskAction(task);
   return (
     <article className={`task-card ${featured ? "featured" : ""}`} aria-label={`${task.suiteName} ${formatTask(task.taskType)} task`}>
@@ -186,7 +190,7 @@ function TaskCard({ task, featured, loading, onAction }: { task: FacilityTask; f
       <dl>
         <div><dt>Priority</dt><dd>{task.priority}</dd></div>
         <div><dt>Window</dt><dd>{task.minutesUntilNextReservation == null ? "Long vacancy" : `${task.minutesUntilNextReservation} min`}</dd></div>
-        <div><dt>Due</dt><dd>{task.dueAt ? formatTime(task.dueAt) : "Flexible"}</dd></div>
+        <div><dt>Due</dt><dd>{task.dueAt ? formatLocationTime(task.dueAt, timeZone) : "Flexible"}</dd></div>
       </dl>
       {nextAction ? <div className="button-row"><button className={nextAction === "complete" ? undefined : "secondary"} type="button" disabled={loading} onClick={() => onAction(nextAction)}>{taskActionIcon(nextAction)}{taskActionLabel(nextAction)}</button></div> : <p className="operator-empty">No further lifecycle action is available for this task.</p>}
     </article>
@@ -234,4 +238,3 @@ function formatTaskStatus(status: FacilityTask["status"]): string {
 function formatStatus(status: SuiteStatus): string { return titleCase(status.replaceAll("_", " ")); }
 function titleCase(value: string): string { return value.replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function timezoneLabel(timezone: string): string { if (timezone === "America/Chicago") return "Central Time"; return timezone.replaceAll("_", " "); }
-function formatTime(value: string | Date): string { return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(value)); }

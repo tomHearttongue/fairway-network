@@ -46,10 +46,11 @@ describe("DU1 acceptance remediation round 2", () => {
 
   it("does not render Start Session from confirmed status alone", () => {
     const source = readFileSync("src-page/member-experience.tsx", "utf8");
+    const presentation = readFileSync("src/application/member-flow/member-presentation.ts", "utf8");
 
     expect(source).not.toContain('const canStart = reservation.status === "confirmed";');
     expect(source).toContain("canStartSession");
-    expect(source).toContain("Access opens at");
+    expect(`${source}\n${presentation}`).toContain("Access opens at");
   });
 
   it("authorizes session start only inside the mapped access window", () => {

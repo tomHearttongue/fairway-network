@@ -71,18 +71,18 @@ try {
 
 async function resetDemoRows(db) {
   await db.query("select fairway_seed_location_one()");
-  const people = `(select id from people where email::text like 'fairway-demo-%@example.com' or email::text like 'fairway-ux-%@example.com')`;
+  const people = `(select id from people where email::text like 'fairway-demo-%@example.com' or email::text like 'fairway-ux-%@example.com' or email::text like 'fairway-vs%@example.com')`;
   const profiles = `(select id from member_profiles where person_id in ${people})`;
   const reservations = `(select id from reservations where member_profile_id in ${profiles} or idempotency_key like 'du1:%')`;
   const sessions = `(select id from sessions where member_profile_id in ${profiles} or idempotency_key like 'du1:%')`;
   const guests = `(select id from guests where email::text like 'fairway-demo-guest-%@example.com')`;
 
-  await db.query(`delete from audit_events where actor_id in (select id::text from member_profiles where id in ${profiles}) or idempotency_key like 'du1:%' or idempotency_key like 'du1-r2:%'`);
+  await db.query(`delete from audit_events where actor_id in (select id::text from member_profiles where id in ${profiles}) or idempotency_key like 'du1:%' or idempotency_key like 'du1-r2:%' or idempotency_key like 'du1-r3:%'`);
   await db.query(`delete from domain_events where idempotency_key like 'du1:%' or actor_id in (select id::text from member_profiles where id in ${profiles})`);
   await db.query(`delete from reservation_guests where reservation_id in ${reservations} or host_member_profile_id in ${profiles} or guest_id in ${guests}`);
   await db.query(`delete from agreement_acceptances where guest_id in ${guests}`);
   await db.query(`delete from guests where id in ${guests}`);
-  await db.query(`delete from facility_tasks where idempotency_key like 'du1:%' or source_reservation_id in ${reservations} or source_session_id in ${sessions}`);
+  await db.query(`delete from facility_tasks where idempotency_key like 'du1:%' or source_reservation_id in ${reservations} or source_session_id in ${sessions} or claimed_by in ${profiles}`);
   await db.query(`delete from access_grants where reservation_id in ${reservations} or member_profile_id in ${profiles}`);
   await db.query(`delete from sessions where id in ${sessions}`);
   await db.query(`delete from reservations where id in ${reservations}`);

@@ -31,9 +31,8 @@ export function startQualityCapture(page: Page, id: string): QualityCapture {
   page.on("requestfailed", (request) => {
     const failure = request.failure()?.errorText ?? "unknown";
     const item = { url: sanitize(request.url()), failure };
-    const navigationCancellation = /(ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT|aborted)/i.test(failure)
-      && (request.isNavigationRequest() || request.resourceType() === "document");
-    if (navigationCancellation) result.expectedCancellations.push(item);
+    const browserCancellation = /\b(?:ERR_ABORTED|NS_BINDING_ABORTED|NS_ERROR_ABORT)\b/i.test(failure);
+    if (browserCancellation) result.expectedCancellations.push(item);
     else result.unexpectedNetworkFailures.push(item);
   });
   page.on("response", (response) => {

@@ -805,8 +805,8 @@ function resetScenario(scenario: string) {
 
 async function containsText(locator: ReturnType<Page["locator"]>, sourcePath: string, expected: string | number) {
   const text = String(expected);
-  await expect(locator).toContainText(text);
   const actual = (await locator.innerText()).trim();
+  expect(actual).toContain(text);
   return assertion(sourcePath, actual.includes(text), true, "contains", text, actual);
 }
 

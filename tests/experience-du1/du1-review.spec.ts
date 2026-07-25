@@ -58,6 +58,7 @@ test("captures exact-world DU1 review surfaces", async ({ browser }, testInfo) =
       quality = startQualityCapture(page);
       await loginPersona(page, PERSONAS["demo-active-birdie"], "/");
       await page.getByRole("button", { name: "Play", exact: true }).click();
+      await revealSuiteDetails(page);
       await capture(page, testInfo, busy, 5, "Busy Prime Play", "demo-active-birdie", "coherent-high-demand", ["six active suites", "four protected near-future suites", "two ready suites"]);
       flushQuality(`${project}-busy-prime`, quality);
       await context.close();
@@ -69,6 +70,7 @@ test("captures exact-world DU1 review surfaces", async ({ browser }, testInfo) =
       await loginPersona(page, PERSONAS["demo-active-birdie"], "/");
       await page.getByRole("button", { name: "Play", exact: true }).click();
       await expect(page.getByText("48 credits")).toBeVisible();
+      await revealSuiteDetails(page);
       await capture(page, testInfo, low, 6, "Low Inventory Play", "demo-active-birdie", "inventory-not-credits-constrained", ["48 credits available", "exactly two ready-now suites", "inventory is declared constraint"]);
       flushQuality(`${project}-low-inventory`, quality);
       await context.close();
@@ -114,4 +116,10 @@ function viewportFor(project: string) {
   if (project === "mobile-primary") return { width: 390, height: 844 };
   if (project === "presentation") return { width: 1600, height: 900 };
   return { width: 1440, height: 1000 };
+}
+
+async function revealSuiteDetails(page: Parameters<typeof captureDu1Screen>[0]) {
+  const details = page.locator("details").filter({ hasText: "Suite details" }).first();
+  if (!(await details.getAttribute("open"))) await details.locator("summary").click();
+  await details.scrollIntoViewIfNeeded();
 }

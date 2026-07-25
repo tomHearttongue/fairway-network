@@ -823,7 +823,7 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
 
 async function selectedGuestSnapshot(client: Client, reservationId: string, allowance: number) {
   const result = await client.query(`
-    select rg.status, g.display_name, aa.status waiver_status, aa.verification_state
+    select rg.status, g.full_name display_name, aa.status waiver_status, aa.verification_state
     from reservation_guests rg
     join guests g on g.id = rg.guest_id
     left join agreement_acceptances aa on aa.guest_id = rg.guest_id

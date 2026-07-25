@@ -88,6 +88,11 @@ try {
     if (record.status !== "PASS") throw new Error(`Verification gate failed: ${command.logicalCommand}`);
   }
 
+  if (legacyVerifierServerStarted) {
+    stopLegacyVerifierServer();
+    legacyVerifierServerStarted = false;
+    restoreTrackedGeneratedFile("next-env.d.ts");
+  }
   assertCleanTrackedTree();
   if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("HEAD changed during DU1 R2 verification.");
   writeMatrix();
@@ -96,7 +101,10 @@ try {
   writeMatrix(String(error?.message ?? error));
   throw error;
 } finally {
-  if (legacyVerifierServerStarted) stopLegacyVerifierServer();
+  if (legacyVerifierServerStarted) {
+    stopLegacyVerifierServer();
+    restoreTrackedGeneratedFile("next-env.d.ts");
+  }
 }
 
 async function startLegacyVerifierServer() {
@@ -120,6 +128,14 @@ async function startLegacyVerifierServer() {
 function stopLegacyVerifierServer() {
   const script = "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }";
   spawnSync("powershell.exe", ["-NoProfile", "-Command", script], { stdio: "ignore", windowsHide: true });
+}
+
+function restoreTrackedGeneratedFile(relativePath) {
+  const content = execFileSync(git, ["show", `${commitSha}:${relativePath}`], {
+    cwd: repoRoot,
+    windowsHide: true,
+  });
+  writeFileSync(path.join(repoRoot, relativePath), content);
 }
 
 function validateExperienceQaGate() {

@@ -121,7 +121,10 @@ function validateEvidence(screenshots, accessibility, quality, audit) {
     if (actual !== item.sha256) throw new Error(`Screenshot hash mismatch ${item.file}.`);
     if (hashes.has(actual)) throw new Error(`Duplicate screenshot evidence: ${item.file} and ${hashes.get(actual)}.`);
     hashes.set(actual, item.file);
-    const receipt = readJson(path.join(root, item.reconciliationPath));
+    const receiptPath = item.reconciliationPath.startsWith("artifacts/")
+      ? path.join(repoRoot, item.reconciliationPath)
+      : path.join(root, item.reconciliationPath);
+    const receipt = readJson(receiptPath);
     if (!receipt.reconciliation.ok || receipt.fingerprint !== item.universeFingerprint || receipt.resetExecutionId !== item.resetExecutionId) throw new Error(`Screenshot reconciliation mismatch ${item.file}.`);
   }
   if (accessibility.some((item) => item.violationCount !== 0)) throw new Error("Accessibility evidence contains violations.");

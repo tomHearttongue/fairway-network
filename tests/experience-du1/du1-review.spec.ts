@@ -6,7 +6,7 @@ import path from "node:path";
 import type { Client } from "pg";
 import { buildDemoUniverse, deriveDemoGolfProfile, FAIRWAY_DEMO_CLOCK_ISO } from "@/demo-universe/universe";
 import { assertDevelopmentEnv, loadHarnessEnv } from "../experience/support/env";
-import { connectDb, ensureClerkPersonas, loginPersona, memberProfileForEmail, PERSONAS, setCreditTarget } from "../experience/support/personas";
+import { bootstrapPersona, connectDb, ensureClerkPersonas, loginPersona, memberProfileForEmail, PERSONAS, setCreditTarget } from "../experience/support/personas";
 import {
   captureDu1Screen,
   flushQuality,
@@ -473,8 +473,7 @@ async function captureInsufficientCredits(browser: Browser, testInfo: TestInfo) 
   const page = await context.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:blocked`);
   try {
-    await loginPersona(page, PERSONAS["constrained-member"], "/");
-    const profile = await memberProfileForEmail(client, PERSONAS["constrained-member"].email);
+    const profile = await bootstrapPersona(page, client, PERSONAS["constrained-member"]);
     await setCreditTarget(client, profile.memberProfileId, 0, "DU1 R2 explicit insufficient-credit review state");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Play", exact: true }).click();

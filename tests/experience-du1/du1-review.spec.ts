@@ -477,6 +477,7 @@ async function captureSimpleMemberScenario(
   const page = await context.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:member`);
   try {
+    expectLoginNavigationCancellation(quality, "http://localhost:3100/");
     await loginPersona(page, PERSONAS[personaKey], "/");
     await expect(page.getByRole("heading", { name: /Ready to play/i })).toBeVisible();
     const before = await memberSnapshot(client, PERSONAS[personaKey].email, scenario);
@@ -497,6 +498,7 @@ async function captureSimpleFacilitiesScenario(browser: Browser, testInfo: TestI
   const page = await context.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:facilities`);
   try {
+    expectLoginNavigationCancellation(quality, "http://localhost:3100/facilities");
     await loginPersona(page, PERSONAS["facilities-user"], "/facilities");
     await expect(page.getByRole("heading", { name: "What should I service now?" })).toBeVisible();
     await captureFacilitiesState(page, client, testInfo, receipt, {
@@ -526,6 +528,7 @@ async function captureGuestStates(browser: Browser, testInfo: TestInfo) {
   const page = await context.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:guest`);
   try {
+    expectLoginNavigationCancellation(quality, "http://localhost:3100/");
     await loginPersona(page, PERSONAS["guest-host-member"], "/");
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect(page.locator(".guest-flow .section-heading").getByText("Guests", { exact: true })).toBeVisible();
@@ -579,6 +582,7 @@ async function captureInsufficientCredits(browser: Browser, testInfo: TestInfo) 
   const page = await context.newPage();
   const quality = startQualityCapture(page, `${flowExecutionId}:blocked`);
   try {
+    expectLoginNavigationCancellation(quality, "http://localhost:3100/");
     const profile = await bootstrapPersona(page, client, PERSONAS["constrained-member"]);
     await setCreditTarget(client, profile.memberProfileId, 0, "DU1 R3 deterministic insufficient-credit review state");
     await page.reload({ waitUntil: "domcontentloaded" });

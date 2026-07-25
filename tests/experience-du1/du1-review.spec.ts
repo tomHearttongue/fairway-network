@@ -739,7 +739,7 @@ async function facilitiesSnapshot(client: Client) {
       id: top.id,
       suiteName: top.suite_name,
       status: top.status,
-      statusLabel: top.status === "in_progress" ? "In service" : titleCase(top.status),
+      statusLabel: top.status === "in_progress" ? "In Service" : titleCase(top.status),
       taskType: top.task_type,
       taskTypeLabel: titleCase(top.task_type),
       sourceReservationId: top.source_reservation_id,

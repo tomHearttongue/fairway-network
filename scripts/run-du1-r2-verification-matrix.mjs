@@ -10,6 +10,7 @@ const reviewRootRelative = path.join("artifacts", "du1-remediation-r2-review");
 const root = path.join(repoRoot, reviewRootRelative);
 const transcriptRoot = path.join(root, "reports", "verification", "transcripts");
 const matrixPath = path.join(root, "reports", "verification-matrix.json");
+const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
 const commitSha = gitText(["rev-parse", "HEAD"]);
 const env = {
   ...loadEnvFile(),
@@ -21,6 +22,7 @@ assertCleanTrackedTree();
 mkdirSync(transcriptRoot, { recursive: true });
 
 const gates = [];
+let legacyVerifierServerStarted = false;
 const commands = [
   gate("unit-tests", "pnpm test", process.execPath, ["node_modules/vitest/vitest.mjs", "run"]),
   gate("focused-round-2-tests", "pnpm exec vitest run tests/domains/du1-round2-remediation.test.ts", process.execPath, ["node_modules/vitest/vitest.mjs", "run", "tests/domains/du1-round2-remediation.test.ts"]),
@@ -40,6 +42,10 @@ const commands = [
 try {
   validateExperienceQaGate();
   for (const command of commands) {
+    if (command.id === "verify-vs1b") {
+      legacyVerifierServerStarted = true;
+      await startLegacyVerifierServer();
+    }
     const startedAt = new Date().toISOString();
     const started = Date.now();
     const result = spawnSync(command.executable, command.args, {
@@ -89,6 +95,31 @@ try {
 } catch (error) {
   writeMatrix(String(error?.message ?? error));
   throw error;
+} finally {
+  if (legacyVerifierServerStarted) stopLegacyVerifierServer();
+}
+
+async function startLegacyVerifierServer() {
+  stopLegacyVerifierServer();
+  const stdoutPath = path.join(root, "reports", "verification", "legacy-server.out.log");
+  const stderrPath = path.join(root, "reports", "verification", "legacy-server.err.log");
+  mkdirSync(path.dirname(stdoutPath), { recursive: true });
+  const script = `$env:NODE_OPTIONS='${escapePowerShell(env.NODE_OPTIONS)}'; Start-Process -FilePath '${escapePowerShell(process.execPath)}' -ArgumentList @('${escapePowerShell(nextCli)}','dev','-p','3000') -WorkingDirectory '${escapePowerShell(repoRoot)}' -WindowStyle Hidden -RedirectStandardOutput '${escapePowerShell(stdoutPath)}' -RedirectStandardError '${escapePowerShell(stderrPath)}'`;
+  execFileSync("powershell.exe", ["-NoProfile", "-Command", script], { stdio: "ignore", windowsHide: true });
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 90_000) {
+    try {
+      const response = await fetch("http://localhost:3000", { redirect: "manual" });
+      if (response.status < 500) return;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  throw new Error("Legacy vertical-slice verifier server did not start.");
+}
+
+function stopLegacyVerifierServer() {
+  const script = "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }";
+  spawnSync("powershell.exe", ["-NoProfile", "-Command", script], { stdio: "ignore", windowsHide: true });
 }
 
 function validateExperienceQaGate() {
@@ -147,6 +178,10 @@ function sanitize(value) {
 
 function append(value, option) {
   return value?.includes(option) ? value : `${value ? `${value} ` : ""}${option}`;
+}
+
+function escapePowerShell(value) {
+  return String(value ?? "").replaceAll("'", "''");
 }
 
 function sha256(value) {

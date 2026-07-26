@@ -250,6 +250,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
     await page.reload({ waitUntil: "networkidle" });
     await page.getByRole("button", { name: "My Golf", exact: true }).click();
     await expect(page.getByText("Golfer Passport")).toBeVisible();
+    await page.locator(".activity-panel").scrollIntoViewIfNeeded();
     await captureMemberState(page, client, testInfo, receipt, {
       order: 7,
       step: null,
@@ -279,6 +280,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
 
     await page.getByRole("button", { name: "Home", exact: true }).click();
     await expect(page.getByRole("heading", { name: /Ready to play, Tom/i })).toBeVisible();
+    await page.locator(".session-card").scrollIntoViewIfNeeded();
     await captureMemberState(page, client, testInfo, receipt, {
       order: 8,
       step: 7,

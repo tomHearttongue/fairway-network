@@ -94,6 +94,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
     await expect(page.getByRole("button", { name: /Start Session/i })).toHaveCount(0);
 
     const quality = startQualityCapture(page, `${flowExecutionId}:member`);
+    await assertMobileHomeStack(page);
     await captureMemberState(page, client, testInfo, receipt, {
       order: 1,
       step: 1,
@@ -280,6 +281,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
 
     await page.getByRole("button", { name: "Home", exact: true }).click();
     await expect(page.getByRole("heading", { name: /Ready to play, Tom/i })).toBeVisible();
+    await assertMobileHomeStack(page);
     await page.locator(".session-card").scrollIntoViewIfNeeded();
     await captureMemberState(page, client, testInfo, receipt, {
       order: 8,
@@ -1264,4 +1266,17 @@ function viewportFor(project: string) {
   if (project === "mobile-primary") return { width: 390, height: 844 };
   if (project === "presentation") return { width: 1600, height: 900 };
   return { width: 1440, height: 1000 };
+}
+
+async function assertMobileHomeStack(page: Page) {
+  const layout = await page.evaluate(() => {
+    const panels = Array.from(document.querySelectorAll<HTMLElement>(".home-layout > .session-card, .home-layout > .insight-card"));
+    return panels.map((panel) => {
+      const rect = panel.getBoundingClientRect();
+      return { width: rect.width, top: rect.top, bottom: rect.bottom };
+    });
+  });
+  expect(layout).toHaveLength(2);
+  expect(layout.every((panel) => panel.width >= 340), "Home secondary panels should use the mobile content width").toBe(true);
+  expect(layout[1].top >= layout[0].bottom, "Home secondary panels should stack without overlap").toBe(true);
 }

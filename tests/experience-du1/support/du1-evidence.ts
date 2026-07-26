@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { FAIRWAY_DEMO_CLOCK_ISO, FAIRWAY_DEMO_UNIVERSE_SEED, FAIRWAY_DEMO_UNIVERSE_VERSION } from "@/demo-universe/universe";
 
-const root = path.join("artifacts", "du1-remediation-r3-review");
+const root = path.join("artifacts", "du1-remediation-r4-review");
 const expectedLoginNavigations = new WeakMap<QualityCapture, Set<string>>();
 
 export type CaptureIdentity = {
@@ -18,18 +18,26 @@ export type CaptureIdentity = {
 export type StructuredAssertion = {
   id: string;
   evidenceType: "ui" | "state";
+  sourceKind: "state-backed" | "derived-presentation" | "interaction";
   sourcePath: string;
   comparator: "equals" | "contains" | "count" | "absent";
   expected: string | number | boolean | null;
   actual: string | number | boolean | null;
   locator?: {
-    kind: "testId" | "role" | "label" | "css";
+    kind: "test-id" | "role" | "label" | "text" | "css";
     value: string;
     name?: string;
   };
   stateEvidence?: {
     reconciliationPath: string;
     queryId: string;
+  };
+  presentationEvidence?: {
+    ruleId: string;
+    inputs: string[];
+  };
+  interactionEvidence?: {
+    expectedState: "enabled" | "disabled" | "present" | "absent";
   };
   passed: true;
 };

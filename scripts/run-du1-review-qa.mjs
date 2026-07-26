@@ -5,7 +5,7 @@ import { FAIRWAY_DEMO_CLOCK_ISO } from "../src/demo-universe/universe.ts";
 
 const repoRoot = process.cwd();
 const git = process.env.FAIRWAY_GIT_EXECUTABLE ?? "git";
-const reviewRootRelative = path.join("artifacts", "du1-remediation-r3-review");
+const reviewRootRelative = path.join("artifacts", "du1-remediation-r4-review");
 const root = path.join(repoRoot, reviewRootRelative);
 const nextCli = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
 const playwrightCli = path.join(repoRoot, "node_modules", "@playwright", "test", "cli.js");
@@ -27,22 +27,22 @@ rmSync(path.join(root, "evidence"), { recursive: true, force: true });
 rmSync(path.join(root, "playwright"), { recursive: true, force: true });
 rmSync(path.join(root, "runtime"), { recursive: true, force: true });
 mkdirSync(path.join(root, "playwright"), { recursive: true });
-console.log(`DU1 R3 review: building committed revision ${commitSha}`);
+console.log(`DU1 R4 review: building committed revision ${commitSha}`);
 run(process.execPath, [nextCli, "build"]);
-console.log("DU1 R3 review: starting production server on 3100");
+console.log("DU1 R4 review: starting production server on 3100");
 startServer();
 try {
   await waitForServer();
-  console.log("DU1 R3 review: running Playwright exact-world evidence");
+  console.log("DU1 R4 review: running Playwright exact-world evidence");
   run(process.execPath, [playwrightCli, "test", "--config=playwright.du1.config.ts"]);
 } finally {
   await stopServer();
 }
 assertCleanTrackedTree();
-if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("HEAD changed during DU1 R3 Experience QA.");
+if (gitText(["rev-parse", "HEAD"]) !== commitSha) throw new Error("HEAD changed during DU1 R4 Experience QA.");
 mkdirSync(path.join(root, "reports"), { recursive: true });
 writeFileSync(path.join(root, "reports", "experience-qa-gate.json"), `${JSON.stringify({
-  gate: "DU1 R3 Playwright Experience QA",
+  gate: "DU1 R4 Playwright Experience QA",
   logicalCommand: "pnpm demo:review:qa",
   status: "PASS",
   exitCode: 0,
@@ -70,7 +70,7 @@ async function waitForServer() {
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
-  throw new Error("DU1 R3 production-like review server did not start.");
+  throw new Error("DU1 R4 production-like review server did not start.");
 }
 
 async function stopServer() {
@@ -81,7 +81,7 @@ async function stopServer() {
 
 function assertCleanTrackedTree() {
   const dirty = gitText(["status", "--porcelain", "--untracked-files=no"]).split(/\r?\n/).filter(Boolean);
-  if (dirty.length) throw new Error(`Cannot generate DU1 R3 review evidence: tracked tree is dirty.\n${dirty.join("\n")}`);
+  if (dirty.length) throw new Error(`Cannot generate DU1 R4 review evidence: tracked tree is dirty.\n${dirty.join("\n")}`);
 }
 
 function gitText(args) {

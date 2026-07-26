@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Client } from "pg";
 import { buildDemoUniverse, deriveDemoGolfProfile, FAIRWAY_DEMO_CLOCK_ISO } from "@/demo-universe/universe";
+import { projectMemberGolfProfile, type CompletedSessionActivityFact } from "@/application/member-flow/member-activity";
 import { assertDevelopmentEnv, loadHarnessEnv } from "../experience/support/env";
 import { bootstrapPersona, connectDb, ensureClerkPersonas, loginPersona, memberProfileForEmail, PERSONAS, setCreditTarget } from "../experience/support/personas";
 import {
@@ -20,7 +21,7 @@ import {
 
 const env = loadHarnessEnv();
 assertDevelopmentEnv(env);
-const artifactRoot = path.join(process.cwd(), "artifacts", "du1-remediation-r3-review");
+const artifactRoot = path.join(process.cwd(), "artifacts", "du1-remediation-r4-review");
 
 test.beforeAll(async () => {
   if (test.info().project.name === "mobile-primary") resetEvidenceFiles();
@@ -203,7 +204,12 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
         await containsText(page.locator(".club-metric").filter({ hasText: "7 Iron" }), "golfProfile.sevenIronSampleLabel", snapshot.golfProfile.sevenIronSampleLabel),
         await containsText(page.locator(".club-metric").filter({ hasText: "PW" }), "golfProfile.pitchingWedgeCarryLabel", snapshot.golfProfile.pitchingWedgeCarryLabel),
         await containsText(page.locator(".club-metric").filter({ hasText: "PW" }), "golfProfile.pitchingWedgeSampleLabel", snapshot.golfProfile.pitchingWedgeSampleLabel),
+        await containsText(page.locator(".activity-panel"), "golfProfile.completedSessionCount", `${snapshot.golfProfile.completedSessionCount} completed`),
+        await countAssertion(page.locator(".activity-row"), "golfProfile.recentActivityCount", snapshot.golfProfile.recentActivityCount),
+        await containsText(page.locator(".activity-row").first(), "golfProfile.latestActivityTitle", snapshot.golfProfile.latestActivityTitle!),
         await countAssertion(page.getByText(/GHIN|WHS|Uneekor/i), "golfProfile.liveProviderImplicationAbsent", 0),
+        assertion("golfProfile.completedSessionCount", snapshot.golfProfile.completedSessionCount, 36),
+        assertion("golfProfile.recentActivityCount", snapshot.golfProfile.recentActivityCount, 3),
       ],
     });
 
@@ -223,22 +229,58 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
       assertions: async (snapshot) => [
         await containsText(page.getByRole("status"), "member.firstName", snapshot.member.firstName),
         await containsText(page.getByRole("status"), "completedLifecycle.suiteName", snapshot.completedLifecycle!.suiteName),
-        await containsText(page.getByRole("status"), "completedLifecycle.duration", "60 minutes"),
+        await containsText(page.getByRole("status"), "completedLifecycle.bookingLabel", "60-minute booking"),
         await containsText(page.getByRole("status"), "completedLifecycle.activitySaved", "activity has been saved"),
         await countAssertion(page.getByText("Session active"), "completedLifecycle.activeSessionVisible", 0),
         await countAssertion(page.getByRole("button", { name: "View My Golf" }), "completedLifecycle.viewGolfAction", 1),
         await countAssertion(page.getByRole("button", { name: "Done" }), "completedLifecycle.doneAction", 1),
         assertion("completedLifecycle.reservationStatus", snapshot.completedLifecycle!.reservationStatus, "completed"),
         assertion("completedLifecycle.sessionEnded", snapshot.completedLifecycle!.sessionEnded, true),
+        assertion("completedLifecycle.scheduledDurationMinutes", snapshot.completedLifecycle!.scheduledDurationMinutes, 60),
+        assertion("completedLifecycle.elapsedDurationMinutes", snapshot.completedLifecycle!.elapsedDurationMinutes!, 0),
+        assertion("completedLifecycle.sessionStartedAt", snapshot.completedLifecycle!.sessionStartedAt!, FAIRWAY_DEMO_CLOCK_ISO),
+        assertion("completedLifecycle.sessionEndedAt", snapshot.completedLifecycle!.sessionEndedAt!, FAIRWAY_DEMO_CLOCK_ISO),
         assertion("completedLifecycle.accessStatus", snapshot.completedLifecycle!.accessStatus, "expired"),
         assertion("completedLifecycle.turnoverTaskStatus", snapshot.completedLifecycle!.turnoverTaskStatus, "open"),
       ],
     });
 
-    await page.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("heading", { name: /Ready to play, Tom/i })).toBeVisible();
+    await page.getByRole("button", { name: "View My Golf" }).click();
+    await expect(page.getByText("Golfer Passport")).toBeVisible();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "My Golf", exact: true }).click();
+    await expect(page.getByText("Golfer Passport")).toBeVisible();
     await captureMemberState(page, client, testInfo, receipt, {
       order: 7,
+      step: null,
+      screen: "Post-completion My Golf",
+      state: "runtime-completion-projected-once",
+      flowExecutionId,
+      personaKey: "demo-active-birdie",
+      qualityId: quality.id,
+      assertions: async (snapshot) => [
+        await containsText(page.locator(".activity-panel"), "golfProfile.completedSessionCount", `${snapshot.golfProfile.completedSessionCount} completed`),
+        await countAssertion(page.locator(".activity-row"), "golfProfile.recentActivityCount", snapshot.golfProfile.recentActivityCount),
+        await containsText(page.locator(".activity-row").first(), "golfProfile.latestActivityTitle", snapshot.golfProfile.latestActivityTitle!),
+        await containsText(page.locator(".activity-row").first(), "golfProfile.latestActivityDetail", snapshot.golfProfile.latestActivityDetail!),
+        await containsText(page.locator(".club-metric").filter({ hasText: "Driver" }), "golfProfile.driverCarryLabel", snapshot.golfProfile.driverCarryLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "Driver" }), "golfProfile.driverBallSpeedLabel", snapshot.golfProfile.driverBallSpeedLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "Driver" }), "golfProfile.driverDispersionLabel", snapshot.golfProfile.driverDispersionLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "Driver" }), "golfProfile.driverSampleLabel", snapshot.golfProfile.driverSampleLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "7 Iron" }), "golfProfile.sevenIronCarryLabel", snapshot.golfProfile.sevenIronCarryLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "7 Iron" }), "golfProfile.sevenIronSampleLabel", snapshot.golfProfile.sevenIronSampleLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "PW" }), "golfProfile.pitchingWedgeCarryLabel", snapshot.golfProfile.pitchingWedgeCarryLabel),
+        await containsText(page.locator(".club-metric").filter({ hasText: "PW" }), "golfProfile.pitchingWedgeSampleLabel", snapshot.golfProfile.pitchingWedgeSampleLabel),
+        assertion("golfProfile.completedSessionCount", snapshot.golfProfile.completedSessionCount, 37),
+        assertion("golfProfile.recentActivityCount", snapshot.golfProfile.recentActivityCount, 3),
+        assertion("golfProfile.latestActivityDetail", snapshot.golfProfile.latestActivityDetail!, "Play Now - Practice Suite 1 - 60-minute booking"),
+      ],
+    });
+
+    await page.getByRole("button", { name: "Home", exact: true }).click();
+    await expect(page.getByRole("heading", { name: /Ready to play, Tom/i })).toBeVisible();
+    await captureMemberState(page, client, testInfo, receipt, {
+      order: 8,
       step: 7,
       screen: "Completed Lifecycle",
       state: "reservation-session-access-complete-turnover-open",
@@ -247,6 +289,10 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
       qualityId: quality.id,
       assertions: async (snapshot) => [
         await containsText(page.getByRole("heading", { name: /Ready to play, Tom/i }), "completedLifecycle.memberHomeVisible", "Ready to play, Tom"),
+        await containsText(page.locator(".session-card"), "futureReservation.suiteName", snapshot.futureReservation!.suiteName),
+        await containsText(page.locator(".session-card"), "futureReservation.startLabel", snapshot.futureReservation!.startLabel),
+        await containsText(page.locator(".session-card"), "futureReservation.accessOpensLabel", snapshot.futureReservation!.accessOpensLabel),
+        await countAssertion(page.locator(".session-card").getByText("Practice Suite 1", { exact: true }), "completedLifecycle.completedSuiteAbsentFromUpNext", 0),
         assertion("completedLifecycle.reservationStatus", snapshot.completedLifecycle!.reservationStatus, "completed"),
         assertion("completedLifecycle.accessStatus", snapshot.completedLifecycle!.accessStatus, "expired"),
         assertion("completedLifecycle.turnoverTaskStatus", snapshot.completedLifecycle!.turnoverTaskStatus, "open"),
@@ -263,7 +309,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
     await expect(facilitiesPage.getByRole("heading", { name: "What should I service now?" })).toBeVisible({ timeout: 45_000 });
     let goldenTaskId = "";
     await captureFacilitiesState(facilitiesPage, client, testInfo, receipt, {
-      order: 8,
+      order: 9,
       step: 8,
       screen: "Facilities Queue",
       state: "same-suite-turnover-task-open",
@@ -281,7 +327,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
           await containsText(facilitiesPage.getByLabel("Next service task"), "topTask.dueLabel", snapshot.topTask!.dueLabel),
           await countAssertion(facilitiesPage.getByLabel("Next service task").getByRole("button", { name: /Claim task/i }), "topTask.canClaim", 1),
           assertion("topTask.sourceReservationId", snapshot.topTask!.sourceReservationId, snapshot.completedLifecycle!.reservationId),
-          assertion("topTask.sourceSessionId", Boolean(snapshot.topTask!.sourceSessionId), true),
+          assertion("topTask.sourceSessionPresent", snapshot.topTask!.sourceSessionPresent, true),
           assertion("topTask.status", snapshot.topTask!.status, "open"),
         ];
       },
@@ -293,7 +339,7 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
     await nextTask.getByRole("button", { name: /Start service/i }).click();
     await expect(nextTask.getByRole("button", { name: /Mark ready/i })).toBeVisible({ timeout: 30_000 });
     await captureFacilitiesState(facilitiesPage, client, testInfo, receipt, {
-      order: 9,
+      order: 10,
       step: 9,
       screen: "Facilities Service",
       state: "same-task-claimed-and-in-progress",
@@ -306,16 +352,16 @@ async function runMobileGoldenDemo(browser: Browser, testInfo: TestInfo) {
         await containsText(nextTask, "topTask.windowLabel", snapshot.topTask!.windowLabel),
         await containsText(nextTask, "topTask.dueLabel", snapshot.topTask!.dueLabel),
         await countAssertion(nextTask.getByRole("button", { name: /Mark ready/i }), "topTask.canComplete", 1),
-        assertion("topTask.sameTaskId", snapshot.topTask!.id, goldenTaskId),
+        assertion("topTask.id", snapshot.topTask!.id, goldenTaskId),
         assertion("topTask.status", snapshot.topTask!.status, "in_progress"),
-        assertion("topTask.noDuplicate", snapshot.inventory.openTaskCount, 1),
+        assertion("inventory.openTaskCount", snapshot.inventory.openTaskCount, 1),
       ],
     });
 
     await nextTask.getByRole("button", { name: /Mark ready/i }).click();
     await expect(facilitiesPage.getByText(/marked ready/i)).toBeVisible({ timeout: 30_000 });
     await captureFacilitiesState(facilitiesPage, client, testInfo, receipt, {
-      order: 10,
+      order: 11,
       step: 10,
       screen: "Suite Ready",
       state: "turnover-complete-safe-inventory-restored",
@@ -434,7 +480,8 @@ async function runMobileStateGallery(browser: Browser, testInfo: TestInfo) {
     await expect(page.getByText("No Fairway baseline yet")).toBeVisible();
     return [
       await containsText(page.locator(".empty-state").filter({ hasText: "No Fairway baseline yet" }), "golfProfile.performanceCount", "No Fairway baseline yet"),
-      assertion("golfProfile.completedActivityCount", snapshot.golfProfile.completedActivityCount, 0),
+      assertion("golfProfile.completedSessionCount", snapshot.golfProfile.completedSessionCount, 0),
+      assertion("golfProfile.recentActivityCount", snapshot.golfProfile.recentActivityCount, 0),
     ];
   });
   await captureSimpleMemberScenario(browser, testInfo, "busy-prime", "demo-active-birdie", 12, "Busy Prime", "coherent-high-demand", async (page, snapshot) => {
@@ -452,7 +499,7 @@ async function runMobileStateGallery(browser: Browser, testInfo: TestInfo) {
     return [
       await containsText(page.getByText(/ready now/).first(), "inventory.safeToAssignNowCount", snapshot.inventory.safeToAssignNowCount),
       assertion("inventory.safeToAssignNowCount", snapshot.inventory.safeToAssignNowCount, 2),
-      assertion("member.availableCreditsSufficient", snapshot.member.availableCredits >= 4, true),
+      assertion("member.availableCreditsSufficient", snapshot.member.availableCreditsSufficient, true),
     ];
   });
   await captureSimpleFacilitiesScenario(browser, testInfo, "facility-incident", 14, "Facility Incident", "inspection-and-turnover-affect-availability");
@@ -595,7 +642,7 @@ async function captureInsufficientCredits(browser: Browser, testInfo: TestInfo) 
         await containsText(page.locator(".member-warning"), "playNowQuote.requiredCredits", "needs 6 credits"),
         await containsText(page.locator(".member-warning"), "playNowQuote.currentCredits", "You have 0"),
         assertion("playNowQuote.available", snapshot.playNowQuote.available, true),
-        await countAssertion(page.getByRole("button", { name: "Confirm Play Now" }), "playNowQuote.confirmEnabled", 1, true),
+        await countAssertion(page.getByRole("button", { name: "Confirm Play Now" }), "playNowQuote.confirmDisabled", 1, true),
       ],
     });
     flushQuality(`${testInfo.project.name}-${flowExecutionId}`, quality);
@@ -623,7 +670,7 @@ async function captureMemberState(page: Page, client: Client, testInfo: TestInfo
   const snapshot = await memberSnapshot(client, persona.email, receipt.scenario, input.selectedSuiteName);
   const relative = `${receipt.scenario}/reconciliation/${input.flowExecutionId}-${String(input.order).padStart(2, "0")}.json`;
   const packageReconciliationPath = path.join("runtime", relative).replaceAll("\\", "/");
-  const assertions = withStateProvenance(await input.assertions(snapshot), packageReconciliationPath);
+  const assertions = withStateProvenance(await input.assertions(snapshot), packageReconciliationPath, snapshot);
   const reconciliationPath = writeReconciliation(relative, {
     commitSha: process.env.FAIRWAY_DU1_REVIEW_COMMIT_SHA,
     resetExecutionId: receipt.resetExecutionId,
@@ -663,7 +710,7 @@ async function captureFacilitiesState(page: Page, client: Client, testInfo: Test
   const snapshot = await facilitiesSnapshot(client);
   const relative = `${receipt.scenario}/reconciliation/${input.flowExecutionId}-${String(input.order).padStart(2, "0")}.json`;
   const packageReconciliationPath = path.join("runtime", relative).replaceAll("\\", "/");
-  const assertions = withStateProvenance(await input.assertions(snapshot), packageReconciliationPath);
+  const assertions = withStateProvenance(await input.assertions(snapshot), packageReconciliationPath, snapshot);
   const reconciliationPath = writeReconciliation(relative, {
     commitSha: process.env.FAIRWAY_DU1_REVIEW_COMMIT_SHA,
     resetExecutionId: receipt.resetExecutionId,
@@ -722,7 +769,30 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
   const quote = quoteResult.rows[0].quote;
   const universe = buildDemoUniverse({ scenario: scenario as "normal" | "busy-prime" | "new-member" | "facility-incident" | "low-inventory" });
   const canonical = universe.members.find((item) => item.email === email);
-  const profile = canonical ? deriveDemoGolfProfile(universe, canonical.memberProfileId) : null;
+  const baseProfile = canonical ? deriveDemoGolfProfile(universe, canonical.memberProfileId) : null;
+  const completedSessionFacts: CompletedSessionActivityFact[] = reservationResult.rows
+    .filter((row) => row.status === "completed" && row.session_ended_at)
+    .map((row) => ({
+      sessionId: row.session_id,
+      reservationId: row.id,
+      bookingMode: row.booking_mode,
+      suiteName: row.suite_name,
+      scheduledStartAt: row.start_at.toISOString(),
+      scheduledEndAt: row.end_at.toISOString(),
+      sessionStartedAt: row.session_started_at.toISOString(),
+      sessionEndedAt: row.session_ended_at.toISOString(),
+    }));
+  const profile = canonical && baseProfile
+    ? projectMemberGolfProfile({
+        baseProfile,
+        completedSessions: completedSessionFacts,
+        seededSessionIds: new Set(
+          universe.sessions
+            .filter((session) => session.memberProfileId === canonical.memberProfileId && session.endedAt)
+            .map((session) => session.id),
+        ),
+      })
+    : null;
   const current = reservationResult.rows.find((row) => row.booking_mode === "PLAY_NOW" && ["confirmed", "checked_in"].includes(row.status));
   const future = reservationResult.rows.find((row) => row.status === "confirmed" && row.start_at.toISOString() > FAIRWAY_DEMO_CLOCK_ISO && row.booking_mode === "ADVANCE");
   const completed = reservationResult.rows.find((row) => row.status === "completed" && row.turnover_task_id);
@@ -764,6 +834,7 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
       firstName: String(member.display_name).split(" ")[0],
       membershipPlanCode: member.plan_code,
       availableCredits: Number(member.available_credits),
+      availableCreditsSufficient: Number(member.available_credits) >= 4,
       guestAllowance: Number(member.guest_allowance ?? 0),
     },
     playNowQuote: {
@@ -807,6 +878,12 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
       suiteName: completed.suite_name,
       accessStatus: completed.access_status,
       sessionEnded: Boolean(completed.session_ended_at),
+      scheduledDurationMinutes: Math.round((completed.end_at.getTime() - completed.start_at.getTime()) / 60_000),
+      sessionStartedAt: completed.session_started_at?.toISOString() ?? null,
+      sessionEndedAt: completed.session_ended_at?.toISOString() ?? null,
+      elapsedDurationMinutes: completed.session_started_at && completed.session_ended_at
+        ? Math.max(0, Math.round((completed.session_ended_at.getTime() - completed.session_started_at.getTime()) / 60_000))
+        : null,
       turnoverTaskStatus: completed.turnover_task_status,
       suiteOperationalStatus: completed.suite_operational_status,
     } : null,
@@ -821,7 +898,13 @@ async function memberSnapshot(client: Client, email: string, scenario: string, s
       pitchingWedgeCarryLabel: profile?.performance.find((item) => item.clubCode === "pw") ? `${profile.performance.find((item) => item.clubCode === "pw")!.typicalCarryYards} yd` : "No PW baseline",
       pitchingWedgeSampleLabel: profile?.performance.find((item) => item.clubCode === "pw") ? `${profile.performance.find((item) => item.clubCode === "pw")!.sampleCount} swings` : "No sample",
       performanceCount: profile?.performance.length ?? 0,
-      completedActivityCount: profile?.activity.length ?? 0,
+      completedSessionCount: profile?.completedSessionCount ?? 0,
+      recentActivityCount: profile?.recentActivity.length ?? 0,
+      recentActivity: profile?.recentActivity ?? [],
+      latestActivityId: profile?.recentActivity[0]?.id ?? null,
+      latestActivityTitle: profile?.recentActivity[0]?.title ?? null,
+      latestActivityDetail: profile?.recentActivity[0]?.detail ?? null,
+      latestActivityTime: profile?.recentActivity[0]?.occurredAt ?? null,
     },
     inventory: {
       safeToAssignNowCount,
@@ -893,6 +976,7 @@ async function facilitiesSnapshot(client: Client) {
       taskTypeLabel: titleCase(top.task_type),
       sourceReservationId: top.source_reservation_id,
       sourceSessionId: top.source_session_id,
+      sourceSessionPresent: Boolean(top.source_session_id),
       priority: Number(top.priority) + (top.status === "in_progress" ? 20 : top.status === "claimed" ? 10 : 0),
       dueAt: top.due_at,
       dueLabel: formatLocalTime(top.due_at),
@@ -942,7 +1026,7 @@ async function sessionMutationCounts(client: Client, reservationId: string) {
 }
 
 function resetScenario(scenario: string) {
-  const reviewRoot = path.join("artifacts", "du1-remediation-r3-review");
+  const reviewRoot = path.join("artifacts", "du1-remediation-r4-review");
   const result = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", "demo-reset.mjs"), `--scenario=${scenario}`, "--yes"], {
     cwd: process.cwd(),
     env: { ...process.env, ...env, FAIRWAY_DEMO_RESET_CONFIRM: "RESET_FAIRWAY_DEMO", FAIRWAY_DU1_REVIEW_ROOT: reviewRoot },
@@ -972,7 +1056,14 @@ async function containsText(locator: ReturnType<Page["locator"]>, sourcePath: st
 async function countAssertion(locator: ReturnType<Page["locator"]>, sourcePath: string, expected: number, disabled = false) {
   const actual = disabled ? await locator.evaluateAll((nodes) => nodes.filter((node) => (node as HTMLButtonElement).disabled).length) : await locator.count();
   expect(actual).toBe(expected);
-  return uiAssertion(sourcePath, actual, expected, expected === 0 ? "absent" : "count", locator);
+  return interactionAssertion(
+    sourcePath,
+    actual,
+    expected,
+    expected === 0 ? "absent" : "count",
+    locator,
+    disabled ? (expected > 0 ? "disabled" : "enabled") : (expected === 0 ? "absent" : "present"),
+  );
 }
 
 function assertion(
@@ -987,6 +1078,7 @@ function assertion(
   return {
     id: `state:${sourcePath}`,
     evidenceType: "state",
+    sourceKind: "state-backed",
     sourcePath,
     comparator,
     expected: recordedExpected,
@@ -1006,19 +1098,80 @@ function uiAssertion(
   return {
     id: `ui:${sourcePath}`,
     evidenceType: "ui",
+    sourceKind: "derived-presentation",
     sourcePath,
     comparator,
     expected,
     actual,
-    locator: { kind: "css", value: locator.toString() },
+    locator: locatorProvenance(locator),
+    presentationEvidence: {
+      ruleId: comparator === "contains" ? "rendered-value-contains-presented-fact" : "rendered-value-matches-presentation-rule",
+      inputs: [sourcePath],
+    },
     passed: true,
   };
 }
 
-function withStateProvenance(assertions: StructuredAssertion[], reconciliationPath: string): StructuredAssertion[] {
-  return assertions.map((item) => item.evidenceType === "state"
-    ? { ...item, stateEvidence: { ...item.stateEvidence!, reconciliationPath } }
-    : item);
+function interactionAssertion(
+  sourcePath: string,
+  actual: number,
+  expected: number,
+  comparator: StructuredAssertion["comparator"],
+  locator: ReturnType<Page["locator"]>,
+  expectedState: NonNullable<StructuredAssertion["interactionEvidence"]>["expectedState"],
+): StructuredAssertion {
+  return {
+    id: `interaction:${sourcePath}`,
+    evidenceType: "ui",
+    sourceKind: "interaction",
+    sourcePath,
+    comparator,
+    expected,
+    actual,
+    locator: locatorProvenance(locator),
+    interactionEvidence: { expectedState },
+    passed: true,
+  };
+}
+
+function withStateProvenance(assertions: StructuredAssertion[], reconciliationPath: string, snapshot: unknown): StructuredAssertion[] {
+  return assertions.map((item) => {
+    if (item.evidenceType === "state") {
+      return { ...item, stateEvidence: { ...item.stateEvidence!, reconciliationPath } };
+    }
+    if (item.sourceKind === "derived-presentation" && resolveSourcePath(snapshot, item.sourcePath).found) {
+      return {
+        ...item,
+        sourceKind: "state-backed",
+        presentationEvidence: undefined,
+        stateEvidence: { reconciliationPath, queryId: `snapshot:${item.sourcePath}` },
+      };
+    }
+    return item;
+  });
+}
+
+function resolveSourcePath(value: unknown, sourcePath: string): { found: boolean; value?: unknown } {
+  let current: unknown = value;
+  for (const segment of sourcePath.split(".")) {
+    if (current === null || typeof current !== "object" || !(segment in current)) return { found: false };
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return { found: current !== undefined, value: current };
+}
+
+function locatorProvenance(locator: ReturnType<Page["locator"]>): NonNullable<StructuredAssertion["locator"]> {
+  const value = locator.toString();
+  const kind = value.includes("getByRole(")
+    ? "role"
+    : value.includes("getByLabel(")
+      ? "label"
+      : value.includes("getByTestId(")
+        ? "test-id"
+        : value.includes("getByText(")
+          ? "text"
+          : "css";
+  return { kind, value };
 }
 
 function captureIdentity(

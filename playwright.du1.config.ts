@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/experience-du1",
   globalSetup: "./tests/experience-du1/support/global-setup.ts",
-  outputDir: "./artifacts/du1-remediation-r3-review/playwright/test-results",
+  outputDir: "./artifacts/du1-remediation-r4-review/playwright/test-results",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -11,8 +11,8 @@ export default defineConfig({
   expect: { timeout: 30_000 },
   reporter: [
     ["list"],
-    ["json", { outputFile: "artifacts/du1-remediation-r3-review/playwright/results.json" }],
-    ["html", { outputFolder: "artifacts/du1-remediation-r3-review/playwright/report", open: "never" }],
+    ["json", { outputFile: "artifacts/du1-remediation-r4-review/playwright/results.json" }],
+    ["html", { outputFolder: "artifacts/du1-remediation-r4-review/playwright/report", open: "never" }],
   ],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",

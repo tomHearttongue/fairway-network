@@ -1,16 +1,27 @@
 export function validateEvidenceAssertion(assertion, capture) {
-  for (const field of ["id", "evidenceType", "sourcePath", "comparator", "passed"]) {
+  for (const field of ["id", "evidenceType", "sourceKind", "sourcePath", "comparator", "passed"]) {
     if (assertion?.[field] === undefined || assertion?.[field] === null) throw new Error(`Assertion lacks ${field}.`);
   }
   if (assertion.passed !== true) throw new Error(`Assertion did not pass: ${assertion.id}`);
-  if (assertion.evidenceType === "ui") {
-    if (!assertion.locator?.kind || !assertion.locator?.value) throw new Error(`UI assertion lacks locator provenance: ${assertion.id}`);
-  } else if (assertion.evidenceType === "state") {
+  if (assertion.sourceKind === "state-backed") {
+    if (assertion.evidenceType === "ui" && (!assertion.locator?.kind || !assertion.locator?.value)) {
+      throw new Error(`State-backed UI assertion lacks locator provenance: ${assertion.id}`);
+    }
     if (!assertion.stateEvidence?.queryId || assertion.stateEvidence?.reconciliationPath !== capture.reconciliationPath) {
-      throw new Error(`State assertion lacks reconciliation provenance: ${assertion.id}`);
+      throw new Error(`State-backed assertion lacks reconciliation provenance: ${assertion.id}`);
+    }
+  } else if (assertion.sourceKind === "derived-presentation") {
+    if (assertion.evidenceType !== "ui") throw new Error(`Derived-presentation assertion must be UI evidence: ${assertion.id}`);
+    if (!assertion.presentationEvidence?.ruleId || !Array.isArray(assertion.presentationEvidence?.inputs)) {
+      throw new Error(`Derived-presentation assertion lacks its named rule and inputs: ${assertion.id}`);
+    }
+  } else if (assertion.sourceKind === "interaction") {
+    if (assertion.evidenceType !== "ui") throw new Error(`Interaction assertion must be UI evidence: ${assertion.id}`);
+    if (!assertion.locator?.kind || !assertion.locator?.value || !assertion.interactionEvidence?.expectedState) {
+      throw new Error(`Interaction assertion lacks locator or expected-state provenance: ${assertion.id}`);
     }
   } else {
-    throw new Error(`Unknown assertion evidence type: ${assertion.id}`);
+    throw new Error(`Unknown assertion sourceKind: ${assertion.id}`);
   }
 }
 

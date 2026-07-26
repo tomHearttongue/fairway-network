@@ -99,6 +99,7 @@ describe("DU1 acceptance remediation round 3", () => {
     expect(() => validateEvidenceAssertion({
       id: "ui:test",
       evidenceType: "ui",
+      sourceKind: "state-backed",
       sourcePath: "test",
       comparator: "contains",
       expected: "Tom",
@@ -108,10 +109,12 @@ describe("DU1 acceptance remediation round 3", () => {
     expect(() => validateEvidenceAssertion({
       id: "state:test",
       evidenceType: "state",
+      sourceKind: "state-backed",
       sourcePath: "test",
       comparator: "equals",
       expected: true,
       actual: true,
+      locator: { kind: "text", value: "test" },
       passed: true,
     }, capture)).toThrow("reconciliation");
   });

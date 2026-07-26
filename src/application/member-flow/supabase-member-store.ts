@@ -7,6 +7,7 @@ import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
 import type { CancellationResult, GuestMutationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationGuest, PersistentReservationSummary, PlayNowQuote, ReservationResult, SessionCompletionResult, StartSessionResult, WaiverMutationResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
+import type { CompletedSessionActivityFact } from "@/application/member-flow/member-activity";
 
 export class SupabaseMemberStore {
   private readonly accessProvider = new FakeAccessProvider();
@@ -66,6 +67,8 @@ export class SupabaseMemberStore {
       p_now: this.clock.now().toISOString(),
     });
     if (quoteError) throw new Error(quoteError.message);
+    const memberReservations = (state.memberReservations ?? []).map((item) => mapReservationSummaryAt(item, this.clock.now()));
+    const completedSessions = await this.getCompletedSessionActivity(memberProfileId, memberReservations);
 
     return {
       person: state.person,
@@ -76,7 +79,8 @@ export class SupabaseMemberStore {
       suites,
       availability: calculateAvailability({ location, suites, reservations, at: this.clock.now() }),
       playNowQuote: quote ? mapPlayNowQuote(quote as StoredPlayNowQuote) : undefined,
-      memberReservations: (state.memberReservations ?? []).map((item) => mapReservationSummaryAt(item, this.clock.now())),
+      memberReservations,
+      completedSessions,
       auditEvents: state.auditEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) })),
     };
   }
@@ -280,6 +284,35 @@ export class SupabaseMemberStore {
     if (error) throw new Error(error.message);
     if (!data) throw new Error("MEMBER_STATE_NOT_FOUND");
     return data as StoredMemberState;
+  }
+
+  private async getCompletedSessionActivity(
+    memberProfileId: string,
+    reservations: PersistentReservationSummary[],
+  ): Promise<CompletedSessionActivityFact[]> {
+    const { data, error } = await this.supabase
+      .from("sessions")
+      .select("id,reservation_id,started_at,ended_at")
+      .eq("member_profile_id", memberProfileId)
+      .not("ended_at", "is", null)
+      .order("ended_at", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const reservationsById = new Map(reservations.map((reservation) => [reservation.id, reservation]));
+    return (data ?? []).map((session) => {
+      const reservation = reservationsById.get(String(session.reservation_id));
+      if (!reservation) throw new Error(`COMPLETED_SESSION_RESERVATION_NOT_FOUND:${session.id}`);
+      return {
+        sessionId: String(session.id),
+        reservationId: reservation.id,
+        bookingMode: reservation.bookingMode,
+        suiteName: reservation.suiteName,
+        scheduledStartAt: reservation.startAt.toISOString(),
+        scheduledEndAt: reservation.endAt.toISOString(),
+        sessionStartedAt: new Date(String(session.started_at)).toISOString(),
+        sessionEndedAt: new Date(String(session.ended_at)).toISOString(),
+      };
+    });
   }
 }
 

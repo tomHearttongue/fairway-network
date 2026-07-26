@@ -28,7 +28,7 @@ export async function GET() {
       playNowQuote: state.playNowQuote,
       reservations: state.memberReservations,
       auditEvents: state.auditEvents,
-      demoGolfProfile: demoGolfProfileForEmail(state.person.email),
+      demoGolfProfile: demoGolfProfileForEmail(state.person.email, state.completedSessions),
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "UNKNOWN_ERROR" }, { status: 500 });

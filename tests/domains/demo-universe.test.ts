@@ -47,7 +47,8 @@ describe("DU1 deterministic Demo Universe", () => {
     expect(tomSessions.length).toBeLessThanOrEqual(50);
     expect(tomShots.length).toBeGreaterThanOrEqual(200);
     expect(tomShots.length).toBeLessThanOrEqual(400);
-    expect(profile.activity).toHaveLength(3);
+    expect(profile.completedSessionCount).toBe(36);
+    expect(profile.recentActivity).toHaveLength(3);
     expect(driver?.sampleCount).toBe(43);
     expect(driver?.provenance).toContain("43 demo swings");
   });
@@ -73,7 +74,8 @@ describe("DU1 deterministic Demo Universe", () => {
     const profile = deriveDemoGolfProfile(universe, newGolfer!.memberProfileId);
     expect(profile.officialGolf.handicapIndex).toBeNull();
     expect(profile.performance).toHaveLength(0);
-    expect(profile.activity).toHaveLength(0);
+    expect(profile.completedSessionCount).toBe(0);
+    expect(profile.recentActivity).toHaveLength(0);
   });
 
   it("fails verification loudly when canonical identity data is corrupted", () => {

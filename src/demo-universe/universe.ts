@@ -317,7 +317,22 @@ export interface DemoGolfProfile {
     trend: "stable" | "building" | "improving";
     provenance: string;
   }>;
-  activity: Array<{ id: string; title: string; detail: string; occurredAt: string }>;
+  completedSessionCount: number;
+  recentActivity: DemoGolfActivity[];
+}
+
+export interface DemoGolfActivity {
+  id: string;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  sessionId: string;
+  reservationId: string;
+  scheduledDurationMinutes: number;
+  elapsedDurationMinutes: number;
+  sessionStartedAt: string;
+  sessionEndedAt: string;
+  source: "DEMO_SEED" | "PERSISTED_SESSION";
 }
 
 export interface DemoIntegrityResult {
@@ -636,7 +651,8 @@ export function deriveDemoGolfProfile(universe: DemoUniverse, memberProfileId: s
         ? { handicapIndex: null, source: "No official handicap connected", status: "not_established" }
         : officialGolfFor(member),
       performance: [],
-      activity: [],
+      completedSessionCount: sessions.length,
+      recentActivity: [],
     };
   }
 
@@ -648,12 +664,23 @@ export function deriveDemoGolfProfile(universe: DemoUniverse, memberProfileId: s
     performance: (["driver", "7i", "pw"] as const)
       .map((clubCode) => summarizeClub(shots, clubCode, member))
       .filter((summary): summary is NonNullable<typeof summary> => Boolean(summary)),
-    activity: sessions.slice(0, 3).map((session, index) => ({
+    completedSessionCount: sessions.length,
+    recentActivity: sessions.slice(0, 3).map((session, index) => {
+      const reservation = required(universe.reservations.find((item) => item.id === session.reservationId), `reservation ${session.reservationId}`);
+      return {
       id: `demo_activity_${member.id}_${index + 1}`,
       title: activityTitle(session, index),
       detail: activityDetail(session, shots.filter((shot) => shot.sessionId === session.id)),
       occurredAt: session.startedAt,
-    })),
+      sessionId: session.id,
+      reservationId: reservation.id,
+      scheduledDurationMinutes: minutesBetween(reservation.startAt, reservation.endAt),
+      elapsedDurationMinutes: minutesBetween(session.startedAt, session.endedAt!),
+      sessionStartedAt: session.startedAt,
+      sessionEndedAt: session.endedAt!,
+      source: "DEMO_SEED" as const,
+    };
+    }),
   };
 }
 

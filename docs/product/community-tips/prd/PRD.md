@@ -62,6 +62,7 @@ These are hypotheses. V1 must measure behavior without claiming causation or inv
 | `CT-PP-008` | Community Tips and Competition remain logically independent for MVP. | `LOCKED` | architecture |
 | `CT-PP-009` | Analytics and observability are non-blocking consumers, never transactional authority. | `LOCKED` | data |
 | `CT-PP-010` | Any deterministic Community Tips demo data extends DU1 through a separate versioned overlay and never mutates DU1-v1. | `LOCKED` | demo |
+| `CT-PP-011` | Community Tips supports credit-backed practice engagement but does not create, consume, sell, grant, bypass, or reinterpret credits in v1. | `LOCKED` | economic model |
 
 ## 5. MVP Scope
 
@@ -375,7 +376,23 @@ A future placement may reference a versioned Competition-owned challenge ID. Com
 
 Neither domain depends on the other for MVP. Community Tips v1 must not require implementing the Competition engine.
 
-## 15. Success Metrics And Data Contract
+## 15. Economic Model Alignment
+
+Fairway's economic engine is:
+
+> Membership -> Credits -> Capacity Allocation -> Sessions -> Retention
+
+- Membership creates the recurring customer relationship.
+- Credits are Fairway's capacity currency.
+- Reservations and Play Now allocate scarce practice capacity through existing server-authoritative pricing, eligibility, inventory, and policy.
+- Sessions create activity history and reinforce the member's persistent golfer identity.
+- Community Tips supports confidence, repeat practice, better credit utilization, session cadence, and retention.
+
+Community Tips is not directly monetized in MVP. It must not bypass, dilute, replace, or create an alternate path around Fairway's credit and capacity model. It must not create its own entitlement system, credit system, payment model, booking shortcut, or facility-access path.
+
+A tip may encourage a member to practice, but resulting usage must continue through the existing membership, credit, reservation or Play Now, session, and access rules. Reading, authoring, moderation, reporting, placement, and Helpful behavior do not grant capacity or mutate economic authority.
+
+## 16. Success Metrics And Data Contract
 
 The standing Data & Observability Contract applies.
 
@@ -435,7 +452,7 @@ Outcome indicators are correlational until a valid evaluation design supports st
 
 Detailed conceptual records and events are defined in [`DATA-CONTRACT.md`](DATA-CONTRACT.md).
 
-## 16. Non-Functional Requirements
+## 17. Non-Functional Requirements
 
 | ID | Requirement | Status |
 |---|---|---|
@@ -452,7 +469,7 @@ Detailed conceptual records and events are defined in [`DATA-CONTRACT.md`](DATA-
 | `CT-NFR-011` | V1 supports rate limiting and abuse controls before pilot-member authoring launches. | `LOCKED` |
 | `CT-NFR-012` | Review evidence is deterministic, secret-safe, commit-specific, and cannot mutate DU1-v1. | `LOCKED` |
 
-## 17. Remaining Non-Blocking Decisions
+## 18. Remaining Non-Blocking Decisions
 
 These do not prevent implementation planning:
 
@@ -466,7 +483,7 @@ These do not prevent implementation planning:
 | Data retention periods | Define with privacy/legal/security review before production launch. | Before production launch |
 | Member-facing role badge copy | Use `Curated by Fairway` for Fairway content; validate any staff-role label in Product Acceptance. | Before Phase 1 Product Acceptance |
 
-## 18. Release Recommendation
+## 19. Release Recommendation
 
 1. Founder reviews and accepts this PRD package as Phase 0.
 2. Phase 1 may proceed as a bounded curated-tip implementation after acceptance.
@@ -476,7 +493,7 @@ These do not prevent implementation planning:
 
 No phase is approved for implementation by this documentation branch.
 
-## 19. Traceability
+## 20. Traceability
 
 | Product requirement area | Planning artifact |
 |---|---|

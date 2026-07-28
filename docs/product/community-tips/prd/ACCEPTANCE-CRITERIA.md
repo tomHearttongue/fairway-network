@@ -146,7 +146,19 @@ Human Product Acceptance determines whether the experience feels premium, calm, 
 
 Automated accessibility evidence does not replace human review.
 
-## 8. Analytics And Observability Acceptance
+## 8. Economic Model Acceptance
+
+Acceptance requires:
+
+- Reading, Helpful, reporting, authoring, revision, placement, and moderation operations do not mutate credit balances or ledger history.
+- Community Tips does not create or authorize memberships, entitlements, reservations, sessions, access grants, or facility capacity.
+- Any booking or Play Now entry point delegates to the existing server-authoritative pricing, credit, inventory, reservation, and access boundaries without bypassing them.
+- MVP copy and behavior do not imply paid tips, tipping, sponsorship, creator monetization, or a standalone content subscription.
+- Retention, utilization, or revenue claims remain correlational unless supported by a valid measurement design.
+
+Acceptance fails if Community Tips creates an alternate economic or facility-access authority, or if tip exposure is presented as causal revenue or retention proof without valid evidence.
+
+## 9. Analytics And Observability Acceptance
 
 ### Domain Truth
 
@@ -196,7 +208,7 @@ Logs/traces/errors distinguish:
 
 Operational evidence uses stable IDs, rule versions, correlation IDs, and controlled failure reasons rather than content bodies or PII.
 
-## 9. Negative-Case Acceptance
+## 10. Negative-Case Acceptance
 
 The future implementation must prove:
 
@@ -221,7 +233,7 @@ The future implementation must prove:
 19. Rate limits fail safely.
 20. CT1 overlay cannot mutate DU1-v1.
 
-## 10. Demo And Evidence Acceptance
+## 11. Demo And Evidence Acceptance
 
 Use a future separately versioned CT1 overlay.
 
@@ -244,7 +256,7 @@ Required evidence:
 
 Review screenshots must visibly prove their declared state. Automated assertions alone are insufficient for Human Product Acceptance.
 
-## 11. Product Acceptance Review Requirements
+## 12. Product Acceptance Review Requirements
 
 The review package must answer:
 
@@ -267,7 +279,7 @@ Possible outcomes:
 
 No acceptance record is created until Tom explicitly approves the reviewed commit.
 
-## 12. Phase Gate Matrix
+## 13. Phase Gate Matrix
 
 | Acceptance area | Phase 1 | Phase 2 | Phase 3 |
 |---|---:|---:|---:|

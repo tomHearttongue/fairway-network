@@ -60,6 +60,14 @@ All conceptual entities use:
 
 Binary floating point, vendor identity, and arbitrary client-authored authority are irrelevant to this domain and must not become canonical inputs.
 
+### Economic Authority Boundary
+
+- CommunityTip, placement, Helpful, report, revision, consent, and moderation records are not credit-ledger, payment, entitlement, capacity-allocation, reservation, session, or access records.
+- Community Tips records must not create credit grants, holds, commits, releases, refunds, expirations, or adjustments.
+- References to club, location, member-safe context, or a future Competition-owned challenge context do not make Community Tips reservation, session, inventory, or access authority.
+- Community Tips events may support engagement, utilization, and retention analysis, but they are not payment, entitlement, or capacity-allocation facts.
+- Any action that leads toward practice must cross the existing server-authoritative membership, pricing, credit, inventory, reservation or Play Now, session, and access boundaries.
+
 ## 4. CommunityTip
 
 ### Purpose

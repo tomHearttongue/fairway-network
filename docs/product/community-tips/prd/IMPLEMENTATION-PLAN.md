@@ -18,6 +18,8 @@ The recommended sequence establishes content truth and privacy before increasing
 
 Do not create separate content, moderation, ranking, or recommendation services. PostgreSQL remains authoritative. Existing MemberProfile, authorization, audit, location, My Golf, analytics, and observability boundaries should be reused.
 
+Community Tips must not introduce a new monetization path, entitlement path, credit mutation, booking shortcut, access authorization, or reservation/session bypass. Any member action inspired by a tip must still flow through the existing membership, credits, Play Now or reservation, session, and access rules.
+
 ## 2. Phase Summary
 
 | Phase | Objective | Product status |

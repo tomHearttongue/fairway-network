@@ -5,6 +5,7 @@ import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
 import type { MembershipPlanSeed } from "@/domains/membership/test-birdie";
 import type { AvailabilitySlot } from "@/domains/reservations/types";
 import type { PracticeSession } from "@/domains/sessions/fake-session-provider";
+import type { CompletedSessionActivityFact } from "@/application/member-flow/member-activity";
 
 export interface PersistentMemberState {
   person: Person;
@@ -16,6 +17,7 @@ export interface PersistentMemberState {
   availability: AvailabilitySlot[];
   playNowQuote?: PlayNowQuote;
   memberReservations: PersistentReservationSummary[];
+  completedSessions: CompletedSessionActivityFact[];
   auditEvents: AuditEvent[];
 }
 
@@ -80,6 +82,8 @@ export interface PersistentReservationSummary extends PersistentReservation {
   suiteName: string;
   creditsCommitted: number;
   canCancel: boolean;
+  canStartSession?: boolean;
+  startBlockedReason?: "access_scheduled" | "access_expired" | "access_revoked" | "not_startable";
   canCompleteSession?: boolean;
   accessWindowStatus: "none" | "scheduled" | "active" | "expired" | "revoked";
   accessGrant?: PersistentAccessGrant | null;

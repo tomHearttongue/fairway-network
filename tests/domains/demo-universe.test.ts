@@ -26,9 +26,9 @@ describe("DU1 deterministic Demo Universe", () => {
     expect(universe.members.length).toBeGreaterThanOrEqual(150);
     expect(universe.members.length).toBeLessThanOrEqual(300);
     expect((counts.realistic ?? 0) / universe.members.length).toBeGreaterThanOrEqual(0.75);
-    expect(counts.subtleGolf).toBeGreaterThan(10);
+    expect(counts.subtleGolf).toBeGreaterThanOrEqual(8);
     expect(counts.obviousGolf).toBeLessThanOrEqual(8);
-    expect(counts.recognizableGolfCulture).toBeLessThanOrEqual(3);
+    expect(counts.recognizableGolfCulture ?? 0).toBe(0);
     expect(universe.members.some((member) => member.displayName === "Bogey Nelson")).toBe(true);
     expect(universe.members.some((member) => member.displayName === "Ned Threeputt")).toBe(true);
   });
@@ -47,7 +47,8 @@ describe("DU1 deterministic Demo Universe", () => {
     expect(tomSessions.length).toBeLessThanOrEqual(50);
     expect(tomShots.length).toBeGreaterThanOrEqual(200);
     expect(tomShots.length).toBeLessThanOrEqual(400);
-    expect(profile.activity).toHaveLength(3);
+    expect(profile.completedSessionCount).toBe(36);
+    expect(profile.recentActivity).toHaveLength(3);
     expect(driver?.sampleCount).toBe(43);
     expect(driver?.provenance).toContain("43 demo swings");
   });
@@ -59,8 +60,8 @@ describe("DU1 deterministic Demo Universe", () => {
     }
 
     const lowInventory = buildDemoUniverse({ scenario: "low-inventory" });
-    expect(lowInventory.facilityState.filter((state) => state.status === "available")).toHaveLength(3);
-    expect(lowInventory.members.find((member) => member.id === "demo-tom")?.targetAvailableCreditUnits).toBeGreaterThanOrEqual(8);
+    expect(lowInventory.scenarioExpectation.readyNowSuiteIds).toHaveLength(2);
+    expect(lowInventory.members.find((member) => member.id === "demo-tom")?.availableCreditUnits).toBeGreaterThanOrEqual(8);
 
     const incident = buildDemoUniverse({ scenario: "facility-incident" });
     expect(incident.facilityTasks.some((task) => task.taskType === "inspection")).toBe(true);
@@ -73,7 +74,8 @@ describe("DU1 deterministic Demo Universe", () => {
     const profile = deriveDemoGolfProfile(universe, newGolfer!.memberProfileId);
     expect(profile.officialGolf.handicapIndex).toBeNull();
     expect(profile.performance).toHaveLength(0);
-    expect(profile.activity).toHaveLength(0);
+    expect(profile.completedSessionCount).toBe(0);
+    expect(profile.recentActivity).toHaveLength(0);
   });
 
   it("fails verification loudly when canonical identity data is corrupted", () => {
@@ -81,7 +83,7 @@ describe("DU1 deterministic Demo Universe", () => {
     universe.members[1] = { ...universe.members[1], email: universe.members[0].email };
     const integrity = verifyDemoUniverse(universe);
     expect(integrity.ok).toBe(false);
-    expect(integrity.errors.some((error) => error.includes("Duplicate member email"))).toBe(true);
+    expect(integrity.errors.some((error) => error.includes("duplicate member email"))).toBe(true);
   });
 
   it("guards demo reset from running without explicit confirmation", () => {

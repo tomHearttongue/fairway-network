@@ -1103,6 +1103,7 @@ input:focus-visible {
 }
 
 @media (max-width: 700px) {
+  .home-layout,
   .play-layout {
     display: flex;
     flex-direction: column;
@@ -1110,6 +1111,10 @@ input:focus-visible {
     gap: 12px;
   }
 
+  .home-layout > .play-now-card,
+  .home-layout > .session-card,
+  .home-layout > .insight-card,
+  .home-layout > .attention-card,
   .play-layout > .play-now-card,
   .play-layout > .completion-card,
   .play-layout > .flow-panel {

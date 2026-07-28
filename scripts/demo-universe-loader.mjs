@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 export async function loadDemoUniverseModule() {
-  const sourcePath = `${process.cwd()}\\src\\demo-universe\\universe.ts`;
+  const sourcePath = fileURLToPath(new URL("../src/demo-universe/universe.ts", import.meta.url));
   const source = readFileSync(sourcePath, "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {

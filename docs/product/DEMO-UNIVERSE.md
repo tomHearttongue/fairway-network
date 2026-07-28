@@ -45,17 +45,17 @@ Identity pools:
 - `subtleGolf`: curated golf-native names such as Bogey Nelson, Max Carry, Grant Gimme.
 - `obviousGolf`: small hidden joke layer such as Ned Threeputt and Harry Hosel.
 - `easterEgg`: tiny set of deeper references such as Lonnie Hawkins.
-- `recognizableGolfCulture`: centrally replaceable fictional/cultural golf references such as Shooter McGavin, Roy McAvoy, and Happy Gilmore.
+- `recognizableGolfCulture`: centrally replaceable optional fictional/cultural references. `DU1-v1` uses none on public or deep-persona surfaces.
 
-Recognizable third-party names are Easter eggs, not product dependencies. Public demos may replace this pool without changing functionality.
+Recognizable third-party names are not product dependencies. The pool remains centrally replaceable, and the current public demo uses original identities.
 
 ## Deep Personas
 
 | Persona ID | Display Identity | Archetype | Purpose |
 |---|---|---|---|
 | `demo-tom` | Tom | Committed mid-handicap golfer | Primary Golden Demo protagonist. |
-| `competitive-low` | Shooter McGavin | Competitive low-handicap golfer | Future-compatible competition density without implementing competition. |
-| `high-variance` | Roy McAvoy | Talented high-variance golfer | Strong but inconsistent performance story. |
+| `competitive-low` | Cameron Vale | Competitive low-handicap golfer | Future-compatible competition density without implementing competition. |
+| `high-variance` | Cole Mercer | Talented high-variance golfer | Strong but inconsistent performance story. |
 | `bogey-grinder` | Bogey Nelson | Improving higher-handicap golfer | Honest grinder profile with a discoverable golf joke. |
 | `new-golfer` | Nora Bennett | New member | Empty-state and future ONB1 foundation. |
 | `time-compressed-pro` | Priya Shah | Time-compressed professional | Convenience and short Play Now session archetype. |
@@ -86,7 +86,8 @@ Current DU1 shape:
 - Official-style demo Handicap Index around `8.4`.
 - 36 completed historical sessions across roughly six months.
 - 280 canonical demo shot observations.
-- Bag foundation with 12 clubs.
+- Explicit effective-dated bag with 12 clubs.
+- 48 available credits reconciled from append-only half-credit ledger units.
 - Visible My Golf summaries derive from canonical shot facts.
 
 Driver story is intentionally plausible rather than perfectly linear. Recent visible baseline uses 43 demo swings and derives typical carry, ball speed, dispersion, and provenance from underlying facts.
@@ -111,6 +112,8 @@ Safety:
 - Requires `--yes` or `FAIRWAY_DEMO_RESET_CONFIRM=RESET_FAIRWAY_DEMO`.
 - Refuses production-looking connection strings unless an explicit high-risk override is provided.
 - Deletes and recreates demo-owned rows only: `fairway-demo-%@example.com`, `fairway-ux-%@example.com`, and `du1:%` idempotency keys.
+- Projects canonical identity, membership, credit-ledger, reservation, session, access, facilities, guest, and agreement chronology without replacing it with reset-time timestamps.
+- Emits a reset execution receipt and persisted count reconciliation beneath `artifacts/du1-remediation-review/runtime/<scenario>/`.
 
 ## Verify
 
@@ -123,16 +126,21 @@ pnpm demo:verify
 The verifier checks:
 
 - deterministic fingerprints
+- cross-process fingerprint repeatability
 - stable unique IDs
+- at least 209 unique display names across 220 synthetic people
 - one canonical Demo Tom
 - naming distribution
-- membership references
-- credit-unit representation
-- reservation/session references and active-suite overlap
-- facility/task coherence
-- shot/session/club references
+- identity, membership, and created-at chronology
+- append-only half-credit ledger reconstruction and non-negative running balances
+- reservation/session/suite/access lifecycle coherence
+- facility-task source and chronology coherence
+- shot timestamps inside their sessions and clubs inside effective bags
 - scenario-specific truth
-- Demo Tom history depth and derived My Golf coherence
+- all nine deep-persona evidence thresholds
+- Demo Tom history depth and derived My Golf reconciliation
+
+`pnpm demo:audit` independently reconstructs population, persona, ledger, lifecycle, scenario, and visible-metric evidence into a machine-readable report. Report values are derived from the universe rather than separately maintained constants.
 
 ## Future Domain Definition Of Done
 

@@ -132,7 +132,7 @@ try {
   const memberContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const memberPage = await memberContext.newPage();
   await login(memberPage, memberEmail, "/");
-  await memberPage.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await memberPage.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
 
   const playNow = await memberPage.evaluate(async (stamp) => {
     const response = await fetch("/api/member/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "PLAY_NOW", requestedMinutes: 30, creditCost: 1, idempotencyKey: `vs1e-playnow-${stamp}` }) });
@@ -197,14 +197,14 @@ try {
   const facilitiesContextA = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const facilitiesPageA = await facilitiesContextA.newPage();
   await login(facilitiesPageA, facilitiesEmailA, "/");
-  await facilitiesPageA.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await facilitiesPageA.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const facilitiesProfileA = await memberProfileForEmail(client, facilitiesEmailA);
   await client.query("select fairway_grant_development_facilities($1, $2, $3)", [facilitiesProfileA.id, facilitiesProfileA.home_location_id, "Vertical Slice 1E runtime verification facilities grant A"]);
 
   const facilitiesContextB = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const facilitiesPageB = await facilitiesContextB.newPage();
   await login(facilitiesPageB, facilitiesEmailB, "/");
-  await facilitiesPageB.getByRole("heading", { name: "Practice Suite Availability" }).waitFor({ timeout: 45000 });
+  await facilitiesPageB.getByRole("heading", { name: /Ready to play/i }).waitFor({ timeout: 45000 });
   const facilitiesProfileB = await memberProfileForEmail(client, facilitiesEmailB);
   await client.query("select fairway_grant_development_facilities($1, $2, $3)", [facilitiesProfileB.id, facilitiesProfileB.home_location_id, "Vertical Slice 1E runtime verification facilities grant B"]);
 

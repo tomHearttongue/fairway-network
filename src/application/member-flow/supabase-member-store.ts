@@ -7,6 +7,7 @@ import type { LocationConfig, PracticeSuite } from "@/domains/locations/types";
 import type { CancellationResult, GuestMutationResult, PersistentAccessGrant, PersistentMemberState, PersistentReservation, PersistentReservationGuest, PersistentReservationSummary, PlayNowQuote, ReservationResult, SessionCompletionResult, StartSessionResult, WaiverMutationResult } from "@/application/member-flow/types";
 import type { BookingMode } from "@/domains/reservations/types";
 import type { Clock } from "@/shared/clock";
+import type { CompletedSessionActivityFact } from "@/application/member-flow/member-activity";
 
 export class SupabaseMemberStore {
   private readonly accessProvider = new FakeAccessProvider();
@@ -15,6 +16,9 @@ export class SupabaseMemberStore {
   constructor(private readonly supabase: SupabaseClient, private readonly clock: Clock) {}
 
   async bootstrapMember(principal: AuthPrincipal): Promise<string> {
+    const existing = await this.findExistingFairwayProfile(principal);
+    if (existing) return existing;
+
     const { data, error } = await this.supabase.rpc("fairway_bootstrap_clerk_member", {
       p_clerk_user_id: principal.externalId,
       p_email: principal.email,
@@ -25,11 +29,46 @@ export class SupabaseMemberStore {
     return String((data as { memberProfileId: string }).memberProfileId);
   }
 
+  private async findExistingFairwayProfile(principal: AuthPrincipal): Promise<string | null> {
+    const { data: linked, error: linkedError } = await this.supabase
+      .from("auth_principals")
+      .select("person_id")
+      .eq("provider", "clerk")
+      .eq("external_id", principal.externalId)
+      .maybeSingle();
+    if (linkedError) throw new Error(linkedError.message);
+
+    let personId = linked?.person_id as string | undefined;
+    if (!personId) {
+      const { data: person, error: personError } = await this.supabase.from("people").select("id").ilike("email", principal.email).maybeSingle();
+      if (personError) throw new Error(personError.message);
+      personId = person?.id as string | undefined;
+      if (!personId) return null;
+      const { error: linkError } = await this.supabase
+        .from("auth_principals")
+        .upsert({ provider: "clerk", external_id: principal.externalId, person_id: personId }, { onConflict: "provider,external_id" });
+      if (linkError) throw new Error(linkError.message);
+    }
+
+    const { data: profile, error: profileError } = await this.supabase.from("member_profiles").select("id").eq("person_id", personId).maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    return profile?.id ? String(profile.id) : null;
+  }
+
   async getMemberState(memberProfileId: string): Promise<PersistentMemberState> {
     const state = await this.getStoredMemberState(memberProfileId);
     const location = state.location;
     const suites = state.suites;
     const reservations = state.reservations.map(mapReservation);
+
+    const { data: quote, error: quoteError } = await this.supabase.rpc("fairway_quote_play_now", {
+      p_member_profile_id: memberProfileId,
+      p_requested_minutes: null,
+      p_now: this.clock.now().toISOString(),
+    });
+    if (quoteError) throw new Error(quoteError.message);
+    const memberReservations = (state.memberReservations ?? []).map((item) => mapReservationSummaryAt(item, this.clock.now()));
+    const completedSessions = await this.getCompletedSessionActivity(memberProfileId, memberReservations);
 
     return {
       person: state.person,
@@ -39,8 +78,9 @@ export class SupabaseMemberStore {
       location,
       suites,
       availability: calculateAvailability({ location, suites, reservations, at: this.clock.now() }),
-      playNowQuote: state.playNowQuote ? mapPlayNowQuote(state.playNowQuote) : undefined,
-      memberReservations: (state.memberReservations ?? []).map(mapReservationSummary),
+      playNowQuote: quote ? mapPlayNowQuote(quote as StoredPlayNowQuote) : undefined,
+      memberReservations,
+      completedSessions,
       auditEvents: state.auditEvents.map((event) => ({ ...event, createdAt: new Date(event.createdAt) })),
     };
   }
@@ -112,7 +152,8 @@ export class SupabaseMemberStore {
     const reservation = reservations.find((item) => item.id === input.reservationId);
     if (!reservation) throw new Error("RESERVATION_NOT_FOUND");
 
-    const transientSession = await this.sessionProvider.startSession({ reservation, startedAt: this.clock.now() });
+    const now = this.clock.now();
+    const transientSession = await this.sessionProvider.startSession({ reservation, startedAt: now });
     const { data, error } = await this.supabase.rpc("fairway_start_session", {
       p_member_profile_id: input.memberProfileId,
       p_reservation_id: input.reservationId,
@@ -120,6 +161,7 @@ export class SupabaseMemberStore {
       p_external_session_id: transientSession.id,
       p_started_at: transientSession.startedAt.toISOString(),
       p_idempotency_key: input.idempotencyKey,
+      p_now: now.toISOString(),
     });
 
     if (error) throw new Error(error.message);
@@ -243,6 +285,35 @@ export class SupabaseMemberStore {
     if (!data) throw new Error("MEMBER_STATE_NOT_FOUND");
     return data as StoredMemberState;
   }
+
+  private async getCompletedSessionActivity(
+    memberProfileId: string,
+    reservations: PersistentReservationSummary[],
+  ): Promise<CompletedSessionActivityFact[]> {
+    const { data, error } = await this.supabase
+      .from("sessions")
+      .select("id,reservation_id,started_at,ended_at")
+      .eq("member_profile_id", memberProfileId)
+      .not("ended_at", "is", null)
+      .order("ended_at", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const reservationsById = new Map(reservations.map((reservation) => [reservation.id, reservation]));
+    return (data ?? []).map((session) => {
+      const reservation = reservationsById.get(String(session.reservation_id));
+      if (!reservation) throw new Error(`COMPLETED_SESSION_RESERVATION_NOT_FOUND:${session.id}`);
+      return {
+        sessionId: String(session.id),
+        reservationId: reservation.id,
+        bookingMode: reservation.bookingMode,
+        suiteName: reservation.suiteName,
+        scheduledStartAt: reservation.startAt.toISOString(),
+        scheduledEndAt: reservation.endAt.toISOString(),
+        sessionStartedAt: new Date(String(session.started_at)).toISOString(),
+        sessionEndedAt: new Date(String(session.ended_at)).toISOString(),
+      };
+    });
+  }
 }
 
 export interface CreatePersistentReservationInput {
@@ -312,6 +383,44 @@ function mapReservationSummary(reservation: StoredReservationSummary): Persisten
     sessionEndedAt: toOptionalDate(reservation.session_ended_at ?? reservation.sessionEndedAt),
     guests: ((reservation.guests ?? reservation.guests) ?? []).map(mapReservationGuest),
   };
+}
+
+function mapReservationSummaryAt(reservation: StoredReservationSummary, now: Date): PersistentReservationSummary {
+  const mapped = mapReservationSummary(reservation);
+  const access = mapped.accessGrant;
+  const accessWindowStatus = !access
+    ? "none"
+    : access.status === "revoked"
+      ? "revoked"
+      : now < access.startsAt
+        ? "scheduled"
+        : now >= access.expiresAt
+          ? "expired"
+          : "active";
+  return {
+    ...mapped,
+    canCancel: mapped.status === "confirmed" && mapped.startAt > now && !mapped.sessionStartedAt,
+    canStartSession: mapped.status === "confirmed" && !mapped.sessionStartedAt && accessWindowStatus === "active",
+    startBlockedReason: sessionStartBlockedReason(mapped.status, accessWindowStatus, Boolean(mapped.sessionStartedAt)),
+    canCompleteSession: mapped.status === "checked_in" && Boolean(mapped.sessionStartedAt) && !mapped.sessionEndedAt,
+    accessWindowStatus,
+    guests: mapped.guests.map((guest) => ({
+      ...guest,
+      accessEligible: guest.ready && accessWindowStatus === "active" && mapped.status !== "cancelled" && mapped.status !== "completed",
+    })),
+  };
+}
+
+function sessionStartBlockedReason(
+  status: PersistentReservationSummary["status"],
+  accessWindowStatus: PersistentReservationSummary["accessWindowStatus"],
+  hasSession: boolean,
+): PersistentReservationSummary["startBlockedReason"] | undefined {
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "scheduled") return "access_scheduled";
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "expired") return "access_expired";
+  if (status === "confirmed" && !hasSession && accessWindowStatus === "revoked") return "access_revoked";
+  if (status !== "confirmed" || hasSession || accessWindowStatus !== "active") return "not_startable";
+  return undefined;
 }
 
 function mapReservationGuest(guest: StoredReservationGuest): PersistentReservationGuest {

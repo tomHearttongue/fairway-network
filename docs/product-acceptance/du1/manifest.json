@@ -1,0 +1,40 @@
+{
+  "slice": "DU1 - Deterministic Demo Universe Foundation",
+  "version": "DU1-v1",
+  "status": "PRODUCT ACCEPTED",
+  "verdict": "PASS WITH REFINEMENT",
+  "accepted_product_commit_sha": "41d0a0c67976e8f11402061348ea711ebfd5fe59",
+  "candidate_branch": "du1/acceptance-remediation-r4",
+  "acceptance_timestamp": "2026-07-27T19:31:33-05:00",
+  "acceptance_timezone": "America/Chicago",
+  "acceptance_tag": "du1-v1-product-accepted",
+  "deterministic_identity": {
+    "seed": "fairway-demo-universe-du1-v1",
+    "canonical_clock": "2026-07-23T20:00:00.000Z",
+    "population_count": 220,
+    "deep_persona_count": 9,
+    "lightweight_member_count": 211
+  },
+  "outcomes": {
+    "functional_acceptance": "PASS",
+    "automated_experience_qa": "PASS",
+    "human_product_acceptance": "PASS WITH REFINEMENT",
+    "overall": "PRODUCT ACCEPTED"
+  },
+  "review_package": {
+    "filename": "fairway-du1-remediation-r4-review.zip",
+    "repository_relative_path": "artifacts/du1-remediation-r4-review/fairway-du1-remediation-r4-review.zip",
+    "sha256": "d2ed69822b281ad0c36125a2ceeb554a2a079c90b683ab5d3e6fd9781f0095c2",
+    "size_bytes": 2186202,
+    "embedded_product_commit_sha": "41d0a0c67976e8f11402061348ea711ebfd5fe59",
+    "committed_to_git": false
+  },
+  "accepted_non_blocking_refinements": [
+    "DU1-R4-P2-001",
+    "DU1-R4-P2-002",
+    "DU1-R4-P2-003",
+    "DU1-R4-P2-004"
+  ],
+  "quality_backlog_path": "docs/product/QUALITY-BACKLOG.md"
+}
+

@@ -1,10 +1,13 @@
 # DU1 - Deterministic Demo Universe Foundation
 
-**Status:** `PENDING HUMAN REVIEW`  
-**Version:** `DU1-v1`  
-**Seed:** `fairway-demo-universe-du1-v1`  
-**Canonical clock:** `2026-07-23T20:00:00.000Z`  
-**Source:** `src/demo-universe/universe.ts`
+- **Status:** `PRODUCT ACCEPTED - PASS WITH REFINEMENT`
+- **Version:** `DU1-v1`
+- **Seed:** `fairway-demo-universe-du1-v1`
+- **Canonical clock:** `2026-07-23T20:00:00.000Z`
+- **Accepted product commit:** `41d0a0c67976e8f11402061348ea711ebfd5fe59`
+- **Accepted evidence:** `fairway-du1-remediation-r4-review.zip`, SHA-256 `d2ed69822b281ad0c36125a2ceeb554a2a079c90b683ab5d3e6fd9781f0095c2`, `2,186,202` bytes
+- **Acceptance record:** [`docs/product-acceptance/du1/ACCEPTANCE.md`](../product-acceptance/du1/ACCEPTANCE.md)
+- **Source:** `src/demo-universe/universe.ts`
 
 ## Purpose
 
@@ -22,7 +25,7 @@ DU1 uses three layers:
 - Domain seed adapters: `scripts/demo-reset.mjs` translates canonical universe facts into existing Fairway-owned tables for identity, memberships, credits, reservations, sessions, access, facility tasks, and roles.
 - Personas and scenarios: deep personas and scenario overlays reference the same universe rather than fabricating unrelated miniature fixture worlds.
 
-The current My Golf presentation uses canonical demo shot/session facts through `deriveDemoGolfProfile`. No GHIN, Uneekor, GSPro, Stripe, Kisi, waiver, competition, or social integration is implied.
+The current My Golf presentation uses canonical demo shot/session facts through `deriveDemoGolfProfile`. No live or authorized GHIN, WHS, Uneekor, GSPro, Stripe, Kisi, waiver, competition, social, or other production-provider integration is implied.
 
 ## Deterministic Model
 
@@ -73,7 +76,19 @@ Implemented scenario presets:
 - `facility-incident`: inspection task and unavailable suite state.
 - `low-inventory`: inventory is the constraint while credits remain sufficient.
 
+Accepted fingerprints:
+
+| Scenario | Fingerprint |
+|---|---|
+| `normal` | `25f3841ffb383c77` |
+| `busy-prime` | `79064e30cf98a6b1` |
+| `new-member` | `81ef1184913358aa` |
+| `facility-incident` | `47fd078cb50c1e28` |
+| `low-inventory` | `d034c8c1f7ff295f` |
+
 Do not conflate insufficient credits, no availability, and facility incident scenarios unless explicitly testing a combined edge case.
+
+The accepted DU1-v1 facts must not be silently rewritten by future product work. Extensions or intentional changes require a new explicit version and Product Acceptance evidence.
 
 ## Demo Tom
 

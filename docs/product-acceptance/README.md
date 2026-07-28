@@ -34,6 +34,13 @@ Fairway separates functional correctness from product acceptance. Passing tests 
 
 The generated review ZIP is evidence for review, not the historical acceptance record. Large screenshots, reports, and ZIPs should normally remain outside Git. Product acceptance history should be captured as lightweight Markdown/JSON metadata referencing the reviewed commit and bundle manifest.
 
+## Accepted Products And Slices
+
+| Product or slice | Status | Accepted commit | Record |
+|---|---|---|---|
+| DU1-v1 - Deterministic Demo Universe Foundation | `PRODUCT ACCEPTED - PASS WITH REFINEMENT` | `41d0a0c67976e8f11402061348ea711ebfd5fe59` | [`du1/ACCEPTANCE.md`](du1/ACCEPTANCE.md) |
+| VS1G - Fairway Experience Foundation | `PRODUCT ACCEPTED` | `f2de78e1df7669300ffbe1e13578eebed2cbe00d` | [`vs1g/ACCEPTANCE.md`](vs1g/ACCEPTANCE.md) |
+
 ## Security
 
 Review artifacts must exclude secrets, cookies, storage state, session tokens, `.env*` files, dependency caches, and production/member PII. If a trace or artifact may contain authenticated state, keep it local and do not include it in the external bundle.

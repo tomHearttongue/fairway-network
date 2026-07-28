@@ -15,6 +15,13 @@
     "deep_persona_count": 9,
     "lightweight_member_count": 211
   },
+  "scenarios": {
+    "normal": "25f3841ffb383c77",
+    "busy-prime": "79064e30cf98a6b1",
+    "new-member": "81ef1184913358aa",
+    "facility-incident": "47fd078cb50c1e28",
+    "low-inventory": "d034c8c1f7ff295f"
+  },
   "outcomes": {
     "functional_acceptance": "PASS",
     "automated_experience_qa": "PASS",
@@ -35,6 +42,9 @@
     "DU1-R4-P2-003",
     "DU1-R4-P2-004"
   ],
-  "quality_backlog_path": "docs/product/QUALITY-BACKLOG.md"
+  "canonical_document_path": "docs/product/DEMO-UNIVERSE.md",
+  "refinement_record_path": "docs/product-acceptance/du1/REFINEMENTS.md",
+  "quality_backlog_path": "docs/product/QUALITY-BACKLOG.md",
+  "founder_acceptance_statement": "I accept DU1-v1 as the canonical Fairway Demo Universe at commit 41d0a0c67976e8f11402061348ea711ebfd5fe59, with review package SHA-256 d2ed69822b281ad0c36125a2ceeb554a2a079c90b683ab5d3e6fd9781f0095c2. The four Round 4 P2 findings are accepted as non-blocking refinements and will be tracked outside the DU1 acceptance gate."
 }
 

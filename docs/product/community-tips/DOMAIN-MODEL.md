@@ -17,6 +17,29 @@ V1 should not split content, moderation, ranking, and helpfulness into separate 
 
 `golf-context` should initially be a versioned value taxonomy owned by `community`, not a new empty domain. Extract it only when multiple implemented domains share the same contract.
 
+## Business Scope Model
+
+The conceptual model must not assume Fairway owns every future facility:
+
+- Network scope supports Fairway-curated knowledge and shared trust policy.
+- Organization/tenant scope may later represent a third-party facility operator's authorized staff and moderation responsibility.
+- Location scope supports local simulator setup, suite etiquette, and preparation.
+- Challenge/context scope may later reference a Competition-owned identifier.
+- Member/staff/Fairway authorship identifies who supplied knowledge; it does not determine visibility by itself.
+- Private personalization is a placement concern, never a content-visibility shortcut.
+
+V1 should implement only scopes approved by the future PRD. This discovery does not authorize organization tables, tenant configuration, policy inheritance, cross-tenant sharing, or a multi-tenant service split.
+
+Deployment packaging such as Location OS, Golfer Identity/My Golf, Engagement Layer, and Network Layer uses the same canonical Community Tip records. Packaging is not domain ownership.
+
+## Competition Boundary
+
+Competition owns challenges, rules, eligibility, scoring, rankings, divisions/flights, and competition results.
+
+Community Tips owns structured practice knowledge, authorship, revisions, context taxonomy, moderation, helpfulness, visibility, and placement.
+
+A future Community Tip context may reference a versioned challenge ID for placement. Community Tips must not copy or interpret challenge rules/results, and Competition must not become the tip or moderation authority. Neither domain depends on the other for MVP, so Community Tips v1 does not require a competition engine.
+
 ## Conceptual Entities
 
 No entity in this document authorizes a migration.
@@ -225,7 +248,8 @@ Purpose: Define who may discover a published tip.
 Key fields:
 
 - `id`
-- `scope`: `network` or `location`
+- `scope`: `network` or `location` in v1; future `organization` only after approval
+- `organization_id` only in a future organization-scoped model
 - `location_id` when location-scoped
 - `audience`
 - `effective_from`
@@ -245,7 +269,7 @@ Privacy: Internal policy; resulting eligibility is member-visible.
 
 Audit: Policy creation or change.
 
-Future extensibility: Membership-plan or event scope may be added only with an approved need.
+Future extensibility: Organization/tenant, membership-plan, challenge, or event scope may be added only with an approved need and isolation review.
 
 ### CommunityTipPlacement
 
@@ -341,6 +365,8 @@ V1 ranking should be deterministic and server-authoritative:
 7. Break ties deterministically.
 
 Do not rank by public popularity, author follower count, handicap, raw shots, dispersion, session frequency, private performance trend, or other private telemetry in v1.
+
+Future private personalization may be evaluated later. It must remain server-side, must never publish or expose the underlying private telemetry, and requires explicit privacy review and Product Acceptance before it changes placement behavior.
 
 ## Audit And Domain Events
 

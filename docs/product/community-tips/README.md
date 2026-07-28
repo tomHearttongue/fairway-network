@@ -10,18 +10,18 @@ Test whether a small amount of trusted, contextual member knowledge makes golfer
 
 Recommended v1:
 
+- Launch with Fairway/staff-authored published tips first.
+- Place the first reading experience in My Golf club context.
 - Fairway staff with explicit community privileges may author and publish curated tips.
-- Invited pilot members may create drafts and submit them for review.
+- Invited pilot members may create drafts only and submit them for approval.
 - Member-authored tips require moderator approval before publication.
 - Tips use a controlled context taxonomy rather than free-form tags.
-- Tips appear contextually in existing Home, My Golf, and session-completion surfaces.
-- My Golf club context is the recommended first reading placement.
 - A member may mark a tip `Helpful` or withdraw that signal.
 - Helpful counts inform quality and ranking but are not shown publicly in v1.
 - Private performance and session telemetry is not used for v1 ranking or author identity.
 - Fairway owns canonical tips, revisions, visibility, moderation, usefulness events, and audit history.
 
-This shape tests value without adding a fourth primary destination, open comments, direct messages, arbitrary media, or a noisy content wall.
+This shape tests value without a feed, comments, fourth primary destination, telemetry-based public recommendation, private shot/session/performance exposure, direct messages, arbitrary media, or a noisy content wall.
 
 ## Product Hypothesis
 
@@ -73,7 +73,7 @@ V1 does not include:
 - Instructor marketplace behavior or instructor-author privileges.
 - Creator monetization, sponsorships, or paid promotion.
 - Challenge or competition authoring beyond preserving future context boundaries.
-- Private-telemetry-driven ranking.
+- Private performance/session telemetry in v1 ranking or placement.
 - Guest-facing community identity or Facilities community permissions.
 
 ## Product Principles
@@ -87,18 +87,79 @@ V1 does not include:
 7. Empty space is preferable to irrelevant content.
 8. Fairway owns canonical content and policy.
 
-## Decisions Required Before Implementation
+## Business Model Flexibility
 
-The recommendations in this package are not final policy. Founder decisions are required for:
+Community Tips should support Fairway's current owned-location model without assuming that every future deployment is owned by Fairway.
 
-- Pilot member author eligibility.
-- The exact privacy-safe public author identity.
-- Moderator ownership and response expectations.
-- Whether every member submission requires pre-publication review.
-- The first production placement.
-- The minimum evidence threshold that justifies an implementation slice.
+Conceptual deployment models:
 
-See [DECISION-LOG.md](DECISION-LOG.md) for all open questions.
+- **Fairway-owned locations:** Fairway operates the club, controls local staff permissions, and may combine network-wide golf knowledge with location-specific setup or etiquette tips.
+- **Software-only third-party facilities:** A future organization/tenant may operate one or more facilities through Fairway software while Fairway preserves network identity, canonical policy boundaries, and approved cross-network content.
+- **Hybrid network:** Fairway-owned clubs and third-party facilities may participate in one golfer network while retaining explicit organization and location scopes.
+
+Potential future scopes:
+
+| Scope | Candidate responsibility |
+|---|---|
+| Network | Shared taxonomy, Fairway-curated golf knowledge, network visibility rules, global trust/safety policy. |
+| Organization/tenant | Authorized staff authorship, moderation responsibility, tenant-specific policy within Fairway guardrails. |
+| Location | Simulator setup, Practice Suite etiquette, local preparation, local staff-curated guidance. |
+| Challenge/context | Optional placement link to a versioned future challenge without moving challenge ownership into Community Tips. |
+| Member-authored | Reviewed practice observations linked to canonical MemberProfile identity. |
+| Staff-authored | Organization/location guidance from explicitly authorized staff. |
+| Fairway-curated | Network-quality tips authored or approved by Fairway. |
+| Privately personalized | Future server-side placement that may use private context only after explicit privacy review and Product Acceptance. |
+| Community-visible | Approved content and privacy-safe authorship only; never the underlying private placement facts. |
+
+This is product and packaging optionality, not approval to implement multi-tenant SaaS configuration, tenant provisioning, cross-tenant sharing, or policy inheritance in v1.
+
+## Packaging Implications
+
+Community Tips may eventually contribute to several Fairway packages without becoming separate services:
+
+- **Location OS:** Location-scoped simulator setup, suite etiquette, and staff-curated preparation guidance.
+- **Golfer Identity / My Golf:** Club-context practice knowledge and Helpful history around the golfer's existing identity surface.
+- **Engagement Layer:** Session-completion continuity, usefulness signals, contribution, and return-practice hypotheses.
+- **Network Layer:** Shared taxonomy, privacy-safe authorship, Fairway curation, cross-location trust policy, and future context placement.
+
+These are commercial/product packaging lenses. V1 still has one Fairway-owned `community` domain and one bounded implementation slice.
+
+## Logical Separation From Competition
+
+- Competition owns challenges, rules, eligibility, scoring, rankings, divisions/flights, and competition results.
+- Community Tips owns structured practice knowledge, authorship, revisions, moderation, helpfulness, visibility, and placement.
+- A future placement may connect a tip to a versioned competition or challenge context.
+- Neither domain depends on the other for MVP.
+- Community Tips v1 does not require implementing the competition engine.
+
+## Founder Decision Classification
+
+### Required before implementation
+
+Only three decisions currently prevent a trustworthy implementation:
+
+1. The privacy-safe public author identity and consent treatment.
+2. The accountable moderator role, visibility authority, and escalation owner.
+3. The prohibited-content/reason policy moderators enforce.
+
+### Recommended MVP defaults
+
+- Invited active-member pilot for authoring.
+- Review every member-authored revision before publication.
+- Keep Helpful counts private.
+- Launch Driver/Iron/Wedge, practice-intent, and preparation contexts.
+- Put My Golf club context first.
+- Default golf/practice tips to network scope; require explicit location scope for local guidance.
+- Keep the approved revision published during ordinary edits; administrator reason required to restore removed content.
+
+These defaults are implementation-ready recommendations unless the founder chooses otherwise.
+
+### Later, not required for v1
+
+- Instructor-authored tips.
+- Numeric success thresholds and continuation criteria for a later pilot decision.
+
+See [DECISION-LOG.md](DECISION-LOG.md) for the complete classification.
 
 ## Acceptance Recommendation
 

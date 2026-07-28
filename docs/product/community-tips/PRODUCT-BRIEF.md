@@ -33,6 +33,68 @@ Structured contextual tips can increase perceived membership value and practice 
 
 These are hypotheses. Discovery defines measurements, not benchmark claims or causal guarantees.
 
+## Tight MVP Recommendation
+
+V1 should sequence risk deliberately:
+
+1. Publish a small Fairway/staff-authored collection.
+2. Place one qualified tip in My Golf club context.
+3. Record a private Helpful-only signal.
+4. Add invited pilot-member drafts only after the moderator workflow and prohibited-content policy are ready.
+
+The complete v1 boundary remains curated-first. It has no feed, comments, fourth primary navigation destination, public Helpful count, telemetry-based public recommendation, or private shot/session/performance exposure.
+
+Member drafts do not publish without approval. Home and session-completion placements follow evidence from My Golf rather than launching simultaneously.
+
+## Business Model Flexibility
+
+Community Tips should preserve one golfer network while allowing content and moderation responsibility to vary by deployment:
+
+### Fairway-owned locations
+
+Fairway may curate network tips, authorize local staff, and publish location-specific setup or etiquette guidance. Fairway owns both network policy and local operations.
+
+### Software-only third-party facility deployments
+
+A future facility organization may author and moderate organization/location guidance within Fairway's network trust and privacy boundaries. The third party does not become the source of truth for MemberProfile, canonical tips, revisions, visibility, or audit.
+
+### Hybrid owned-location plus SaaS/network deployments
+
+Fairway-owned and third-party facilities may share approved network knowledge while keeping organization-specific and location-specific content explicit. Cross-organization visibility must be policy-driven, never inferred from a member's home location or author.
+
+Conceptual scope model:
+
+- `network`: taxonomy, Fairway-curated content, global safety policy.
+- `organization/tenant`: authorized staff and organization-level moderation responsibility.
+- `location`: local setup, etiquette, and preparation guidance.
+- `challenge/context`: future placement reference to a versioned challenge.
+- `member-authored`: reviewed knowledge linked to MemberProfile.
+- `staff-authored`: explicitly authorized organization/location knowledge.
+- `Fairway-curated`: network-quality content governed by Fairway.
+- `privately personalized`: future server-side placement after privacy approval.
+- `community-visible`: approved content and privacy-safe authorship only.
+
+This is conceptual discovery. It does not introduce tenant tables, SaaS configuration, policy inheritance, organization provisioning, or cross-tenant implementation.
+
+## Packaging Strategy
+
+Community Tips can support multiple Fairway offers while retaining one canonical domain:
+
+| Package lens | Community Tips contribution |
+|---|---|
+| Location OS | Local setup, Practice Suite etiquette, preparation, and staff-curated guidance. |
+| Golfer Identity / My Golf | Club-context practice knowledge around the golfer's existing My Golf experience. |
+| Engagement Layer | Helpful behavior, contribution, session-continuity placement, and repeat-practice learning. |
+| Network Layer | Shared taxonomy, Fairway curation, privacy-safe identity, trust policy, and cross-location knowledge. |
+
+Packaging does not determine technical service boundaries. One lean `community` module remains the recommended v1 architecture.
+
+## Competition Boundary
+
+Competition owns challenges, rules, eligibility, scoring, rankings, divisions/flights, and results. Community Tips owns structured practice knowledge, authorship, revisions, moderation, helpfulness, visibility, and placement.
+
+A future placement may reference a competition-owned challenge context. Community Tips does not own or copy challenge rules or results, and Competition does not own tip content or moderation. Neither domain depends on the other for MVP; Community Tips v1 must launch without a competition engine.
+
 ## Jobs To Be Done
 
 ### Member preparing to practice
@@ -120,6 +182,8 @@ Recommended content limits are provisional and should be validated in UX refinem
 - Do not show public popularity rankings or public helpful counts in v1.
 - Do not expose placement reasons based on private member facts.
 - If no eligible tip is relevant, omit the module rather than displaying low-value filler.
+
+V1 placement does not use private performance or session telemetry. Future private personalization may be evaluated, but contextual placement must never publish or expose the underlying telemetry. Any telemetry-based personalization requires explicit privacy review and Product Acceptance before use.
 
 ## UX Placement Analysis
 
@@ -220,7 +284,7 @@ Domain events and analytics events must not be duplicated merely to satisfy repo
 |---|---|---|
 | Generic content volume | Product feels like a feed. | One contextual tip, controlled taxonomy, quality review. |
 | Advice presented as authority | Member harm or trust loss. | Role disclosure, prohibited-claim policy, moderation. |
-| Private telemetry leakage | Material privacy breach. | No telemetry personalization in v1; server-side policy boundary. |
+| Private telemetry leakage | Material privacy breach. | No telemetry personalization in v1; any future private placement requires privacy review, server-side isolation, and Product Acceptance. |
 | Moderator burden | Solo-founder operational drag. | Invited author cohort, review-before-publish, queue metrics. |
 | Popularity dynamics | Vanity behavior and lower quality. | Helpful-only, hidden counts, no follows/comments. |
 | Home hierarchy erosion | Play Now loses priority. | One optional card below primary golf action; omit when irrelevant. |
@@ -229,4 +293,6 @@ Domain events and analytics events must not be duplicated merely to satisfy repo
 
 ## Product Acceptance Recommendation
 
-Community Tips should not proceed to implementation until founder decisions identify the author cohort, moderator, public author treatment, first placement, prohibited-content policy, and success threshold. A future implementation slice should be accepted independently for function, privacy, moderation, accessibility, DLS/UX, deterministic evidence, and negative cases.
+Community Tips should not proceed to implementation until three true blockers are resolved: public author identity/consent, accountable moderation authority, and prohibited-content/reason policy. The invited author cohort, review-before-publish rule, My Golf-first placement, private Helpful count, taxonomy, scope defaults, and edit/restoration behavior are recommended MVP defaults rather than additional blockers.
+
+Instructor support and numeric pilot continuation thresholds are later decisions. A future implementation slice should be accepted independently for function, privacy, moderation, accessibility, DLS/UX, deterministic evidence, and negative cases.

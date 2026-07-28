@@ -34,11 +34,12 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 #### Epic acceptance criteria
 
-- Founder resolves all blocking questions in [DECISION-LOG.md](DECISION-LOG.md).
+- Founder resolves the three category-A blockers in [DECISION-LOG.md](DECISION-LOG.md): public author identity, accountable moderation authority, and prohibited-content policy.
 - Canonical PRD gains approved Community Tips requirements and policy statuses before implementation.
 - One `community` domain owns canonical tips, revisions, contexts, visibility, moderation, usefulness, reports, and audits.
 - V1 uses Home, Play, and My Golf without a fourth primary destination.
-- Private telemetry is neither published nor used for v1 ranking.
+- V1 ranking and placement do not use private performance or session telemetry.
+- Any future private personalization remains server-side, never exposes the underlying telemetry, and requires privacy review and Product Acceptance.
 - Member content follows the approved review policy.
 - Moderator actions are authorized, attributable, reasoned, idempotent, and reconstructable.
 - Helpful behavior is idempotent and does not create a public social scoreboard.
@@ -47,7 +48,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 #### Epic dependencies
 
-- Founder product-policy decisions.
+- The three category-A founder decisions in [DECISION-LOG.md](DECISION-LOG.md).
 - Existing MemberProfile identity.
 - Existing server-side authorization and audit boundaries.
 - Existing Home/My Golf/session-completion experience contracts.
@@ -57,12 +58,19 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 #### Explicit exclusions
 
 - Feed, fourth nav, comments, DMs, follows, reactions, arbitrary media, anonymous publishing.
-- AI coaching, swing diagnosis, Improvement Score, or private-telemetry recommendations.
+- AI coaching, swing diagnosis, Improvement Score, or private-telemetry placement in v1.
 - Instructor marketplace/authority.
 - Challenge or competition implementation.
 - Guest community access.
 - Paid promotion or author monetization.
 - External community/content platform as source of truth.
+
+#### Business-model and domain boundaries
+
+- The same Fairway-owned Community Tip model should support owned locations, future software-only third-party facility deployments, and a hybrid network.
+- Scope may later be network-, organization/tenant-, location-, challenge/context-, or member-specific, but v1 does not implement multi-tenant SaaS configuration.
+- Community Tips may be packaged within Location OS, Golfer Identity/My Golf, the Engagement Layer, or the Network Layer without splitting canonical ownership.
+- Competition owns challenge rules, eligibility, scoring, rankings, divisions/flights, and results. Community Tips may reference a challenge context for placement but does not require the competition engine.
 
 ## Story 1 - Define Community Tip Domain Model
 
@@ -81,7 +89,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Migration design, ORM selection, service extraction, rich media.
 
-**Dependencies:** Identity, audit, authorization; decisions `CT-OQ-012`.
+**Dependencies:** Identity, audit, authorization. Recommended MVP default: `CT-OQ-012`.
 
 **Risks:** Over-modeling; conflating report state with publication state.
 
@@ -110,7 +118,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Ontology platform, automatic classification, challenge implementation.
 
-**Dependencies:** Decisions `CT-OQ-006`, `CT-OQ-011`.
+**Dependencies:** Recommended MVP defaults `CT-OQ-006`, `CT-OQ-011`.
 
 **Risks:** Taxonomy too broad for quality ranking; club groups that do not match member language.
 
@@ -140,7 +148,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Anonymous tips, instructor authority, media, links, monetization.
 
-**Dependencies:** Decisions `CT-OQ-001`, `002`, `004`, `005`, `012`.
+**Dependencies:** Required decision `CT-OQ-004`; recommended MVP defaults `CT-OQ-001`, `002`, `012`. Instructor support (`CT-OQ-005`) is later and excluded from v1.
 
 **Risks:** Author cohort perceived as unfair; public identity deters contribution; review queue overload.
 
@@ -170,7 +178,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Automated takedown thresholds, appeals system, external case-management platform.
 
-**Dependencies:** Decisions `CT-OQ-008`, `009`, `012`.
+**Dependencies:** Required decisions `CT-OQ-008`, `009`; recommended MVP default `CT-OQ-012`.
 
 **Risks:** Unowned queue, inconsistent policy, coordinated reporting abuse.
 
@@ -200,7 +208,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Likes, reactions, downvotes, comments, author leaderboards.
 
-**Dependencies:** Decision `CT-OQ-003`; canonical member identity.
+**Dependencies:** Recommended MVP default `CT-OQ-003`; canonical member identity.
 
 **Risks:** Popularity bias, manipulation, ambiguous withdrawal meaning.
 
@@ -230,7 +238,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Fourth nav, infinite scroll, generic browse page, Play Now interruption.
 
-**Dependencies:** Decision `CT-OQ-007`; accepted Experience Brief and DLS.
+**Dependencies:** Recommended MVP default `CT-OQ-007`; accepted Experience Brief and DLS.
 
 **Risks:** Diagnosis implication, completion-state crowding, Home hierarchy erosion.
 
@@ -260,7 +268,7 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 **Non-goals:** Public performance sharing, consent framework for telemetry recommendations, social profile.
 
-**Dependencies:** Existing privacy principles; decision `CT-OQ-004`.
+**Dependencies:** Existing privacy principles; required decision `CT-OQ-004`.
 
 **Risks:** Accidental response-field leakage; misleading personalization copy.
 
@@ -439,10 +447,10 @@ Introduce a bounded Community Tips capability that allows eligible members and F
 
 This epic becomes implementation-ready only when:
 
-1. All blocking decisions are answered.
+1. The three category-A blocking decisions are answered.
 2. The canonical PRD and data contract are updated with approved statuses.
 3. The pilot author cohort and moderator owner are named.
-4. The first placement and success rubric are approved.
+4. The recommended My Golf-first placement is approved or explicitly changed; numeric pilot continuation thresholds may be set before pilot evaluation.
 5. Privacy and prohibited-content policies are reviewable.
 6. A vertical-slice boundary and implementation sequence are approved.
 7. DU1-v1 immutability is explicitly preserved.

@@ -51,7 +51,7 @@ Decisions in this document are discovery recommendations. They become authoritat
 - Recommendation: Rank using explicit surface context, controlled taxonomy, visibility, curation, Helpful projection, and recency.
 - Rationale: Tests contextual value while minimizing privacy and explanation risk.
 - Rejected: Ranking from raw shots, dispersion, handicap, recent sessions, or practice frequency.
-- Follow-up: Future private recommendation inputs require a separate privacy decision and acceptance plan.
+- Follow-up: Future private recommendation inputs may be evaluated, but they must remain server-side, never expose underlying telemetry, and require explicit privacy review and Product Acceptance.
 
 ### CT-D-008 - My Golf first
 
@@ -84,6 +84,19 @@ Decisions in this document are discovery recommendations. They become authoritat
 - Rationale: Low expected volume, material trust implications, and risk of coordinated abuse.
 - Rejected: Unreviewed automated takedown thresholds.
 
+### CT-D-013 - Business-model scope optionality
+
+- Recommendation: Preserve network, future organization/tenant, location, challenge/context, authorship, visibility, and private-placement scope as explicit policy dimensions.
+- Rationale: Supports Fairway-owned clubs, software-only third-party facilities, and hybrid network deployments without changing canonical ownership.
+- Rejected: Hardcoding Community Tips to one owned location or prematurely implementing a multi-tenant platform.
+- Follow-up: Organization/tenant configuration requires a later architecture and isolation decision.
+
+### CT-D-014 - Logical separation from Competition
+
+- Recommendation: Community Tips may reference a Competition-owned challenge context for placement but owns no challenge rules, scoring, eligibility, rankings, divisions/flights, or results.
+- Rationale: Preserves clean bounded domains and allows either MVP to ship independently.
+- Rejected: Making Community Tips dependent on a competition engine or copying competition facts into tip records.
+
 ## Open Questions
 
 ### CT-OQ-001 - Who may author?
@@ -94,7 +107,9 @@ Recommendation: An invited pilot cohort of active members in good standing.
 
 Why it matters: Determines volume, abuse controls, fairness, and moderator burden.
 
-Blocking: Yes.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: Invite a bounded cohort of active members in good standing.
 
 ### CT-OQ-002 - Is pre-publication review universal?
 
@@ -104,7 +119,9 @@ Recommendation: Yes for v1, including edits to published member tips.
 
 Why it matters: Directly controls trust and operational workload.
 
-Blocking: Yes.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: Review every member-authored revision before publication.
 
 ### CT-OQ-003 - Is Helpful visible?
 
@@ -114,7 +131,9 @@ Recommendation: No in v1; use the signal privately for quality and ranking.
 
 Why it matters: Visible counts can create social comparison and popularity bias.
 
-Blocking: No if counts remain hidden by default.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: Keep aggregate Helpful counts private.
 
 ### CT-OQ-004 - What public author identity is shown?
 
@@ -124,7 +143,7 @@ Recommendation: Use one privacy-safe network identity previewed and explicitly a
 
 Why it matters: Required for informed authorship and privacy.
 
-Blocking: Yes.
+Classification: `A - REQUIRED BEFORE IMPLEMENTATION`
 
 ### CT-OQ-005 - When are instructors supported?
 
@@ -134,7 +153,9 @@ Recommendation: Later, after instructor identity, authorization, and claims poli
 
 Why it matters: Professional authority changes trust, legal, and commercial expectations.
 
-Blocking: No; defer.
+Classification: `C - LATER / NOT REQUIRED FOR V1`
+
+MVP default: Exclude instructor-authored tips.
 
 ### CT-OQ-006 - Which context dimensions launch?
 
@@ -144,7 +165,9 @@ Recommendation: Launch club group, practice intent, and facility/preparation con
 
 Why it matters: Taxonomy size drives authoring complexity and placement quality.
 
-Blocking: Yes.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: Launch club group, practice intent, and facility/preparation contexts; defer challenge contexts.
 
 ### CT-OQ-007 - What is the first placement?
 
@@ -154,7 +177,9 @@ Recommendation: My Golf club context.
 
 Why it matters: Determines the first hypothesis and UX acceptance surface.
 
-Blocking: Yes.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: My Golf club context is first.
 
 ### CT-OQ-008 - Who moderates and how quickly?
 
@@ -164,7 +189,9 @@ Recommendation: Name one accountable community moderator and begin with an invit
 
 Why it matters: The solo-founder constraint makes unowned queues unsafe.
 
-Blocking: Yes.
+Classification: `A - REQUIRED BEFORE IMPLEMENTATION`
+
+Required decision: Name the accountable moderator and define who may hide, remove, and restore. A numeric response SLA may remain a pilot operating default.
 
 ### CT-OQ-009 - What content is prohibited?
 
@@ -174,7 +201,7 @@ Recommendation: Prohibit dangerous advice, harassment/discrimination, spam/promo
 
 Why it matters: Moderators need consistent reasons before launch.
 
-Blocking: Yes.
+Classification: `A - REQUIRED BEFORE IMPLEMENTATION`
 
 ### CT-OQ-010 - What proves the hypothesis?
 
@@ -184,7 +211,9 @@ Recommendation: Founder should approve a pilot window and decision rubric using 
 
 Why it matters: Prevents Community Tips from continuing solely because it exists.
 
-Blocking: Yes.
+Classification: `C - LATER / NOT REQUIRED FOR V1`
+
+MVP default: Instrument the agreed KPI/guardrails; set numeric continuation thresholds before evaluating the pilot, not before implementation begins.
 
 ### CT-OQ-011 - Network or location visibility?
 
@@ -194,7 +223,9 @@ Recommendation: Golf/practice tips default network-wide; simulator setup and sui
 
 Why it matters: Incorrect local guidance damages trust.
 
-Blocking: Yes for taxonomy/policy implementation.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
+
+MVP default: Golf/practice tips are network-scoped; local setup and etiquette require explicit location scope.
 
 ### CT-OQ-012 - What is the edit and restoration policy?
 
@@ -204,10 +235,41 @@ Recommendation: Keep the current approved revision published during ordinary edi
 
 Why it matters: Defines moderation safety and author expectations.
 
-Blocking: Yes.
+Classification: `B - RECOMMENDED DEFAULT FOR MVP`
 
-## Decisions Required Before An Implementation Slice
+MVP default: Keep the current approved revision published during ordinary edits; only a community administrator may restore removed content, with a reason.
 
-Founder approval is required for `CT-OQ-001`, `002`, `004`, `006`, `007`, `008`, `009`, `010`, `011`, and `012`.
+## Founder Decision Classification
 
-The discovery recommendation resolves `CT-OQ-003` conservatively and defers `CT-OQ-005`, but both should still be recorded in the future PRD update.
+### A. Required before implementation
+
+True blockers:
+
+- `CT-OQ-004`: Public author identity and consent treatment.
+- `CT-OQ-008`: Accountable moderation owner and visibility authority.
+- `CT-OQ-009`: Prohibited-content categories and moderation reason policy.
+
+Count: `3`
+
+### B. Recommended default for MVP
+
+- `CT-OQ-001`: Invited active-member cohort.
+- `CT-OQ-002`: Review every member-authored revision.
+- `CT-OQ-003`: Helpful counts remain private.
+- `CT-OQ-006`: Launch bounded club/practice/preparation taxonomy.
+- `CT-OQ-007`: My Golf club context first.
+- `CT-OQ-011`: Network default with explicit location scope for local guidance.
+- `CT-OQ-012`: Preserve approved revision during edits; administrator-only removed-content restoration.
+
+Count: `7`
+
+These defaults should be carried into the future PRD unless the founder explicitly changes them. They do not prevent implementation refinement.
+
+### C. Later / not required for v1
+
+- `CT-OQ-005`: Instructor-authored tips.
+- `CT-OQ-010`: Numeric pilot continuation thresholds.
+
+Count: `2`
+
+All twelve questions remain visible for traceability. Only category A blocks implementation.
